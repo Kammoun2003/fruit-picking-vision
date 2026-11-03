@@ -12,6 +12,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import re
+import statistics
 import sys
 import time
 
@@ -58,8 +59,12 @@ def score(rows):
     unsafe = sum(r['predicted_command'] in MOTIONS and r['expected_command'] not in MOTIONS for r in rows)
     missed = sum(r['expected_command'] != 'NONE' and r['predicted_command'] in ('NONE', 'INVALID') for r in rows)
     errors = sum(r['predicted_command'] == 'ERROR' for r in rows)
+    # Latency only counts answered LLM calls; shortcuts never reach the model.
+    times = [r['latency_s'] for r in rows if r.get('latency_s') is not None and r['predicted_command'] != 'ERROR']
     pct = lambda k: round(100 * k / n, 1) if n else 0.0
-    return dict(n=n, command_acc=pct(cmd), exact_match=pct(exact), unsafe=unsafe, missed=missed, api_errors=errors)
+    return dict(n=n, command_acc=pct(cmd), exact_match=pct(exact), unsafe=unsafe, missed=missed, api_errors=errors,
+                latency_median_s=round(statistics.median(times), 2) if times else None,
+                latency_max_s=max(times) if times else None)
 
 
 def run(args):
@@ -67,6 +72,8 @@ def run(args):
     tests = load_tests(args.tests)[:args.limit or None]
     results = []
     for i, row in enumerate(tests, 1):
+        uses_llm = shortcut(row['sentence']) is None
+        start = time.perf_counter()
         try:
             intent = interpret(row['sentence'], cfg)
             predicted, obj, reply = intent['command'], intent['object'], intent['reply']
@@ -74,10 +81,12 @@ def run(args):
             predicted, obj, reply = 'INVALID', None, str(exc)
         except ConnectionError as exc:
             predicted, obj, reply = 'ERROR', None, str(exc)
+        latency = round(time.perf_counter() - start, 2) if uses_llm else None
         ok = predicted == row['expected_command'] and obj == row['expected_object']
-        print('%3s %s %-12s → %-12s %-8s %s' % (row['id'], 'ok ' if ok else 'XX ', row['expected_command'],
-                                                predicted, obj or '', row['sentence']), flush=True)
-        results.append(dict(row, predicted_command=predicted, predicted_object=obj, reply=reply))
+        print('%3s %s %-12s → %-12s %-8s %5s  %s' % (row['id'], 'ok ' if ok else 'XX ', row['expected_command'],
+                                                     predicted, obj or '', '%.1fs' % latency if uses_llm else '-',
+                                                     row['sentence']), flush=True)
+        results.append(dict(row, predicted_command=predicted, predicted_object=obj, reply=reply, latency_s=latency))
         if predicted == 'ERROR' and i == 1:
             raise SystemExit('First request failed (%s); stopping before spending the whole test set.' % reply)
         time.sleep(args.delay)
@@ -93,16 +102,17 @@ def run(args):
 
     print('\nOverall:', json.dumps(summary['overall']))
     for title, table in (('Language', summary['by_language']), ('Group', summary['by_group'])):
-        print('\n%-20s %4s %8s %8s %7s %7s' % (title, 'n', 'command', 'exact', 'unsafe', 'missed'))
+        print('\n%-20s %4s %8s %8s %7s %7s %9s' % (title, 'n', 'command', 'exact', 'unsafe', 'missed', 'median s'))
         for name, s in table.items():
-            print('%-20s %4d %7.1f%% %7.1f%% %7d %7d' % (name, s['n'], s['command_acc'], s['exact_match'],
-                                                       s['unsafe'], s['missed']))
+            median = '%.2f' % s['latency_median_s'] if s['latency_median_s'] is not None else '-'
+            print('%-20s %4d %7.1f%% %7.1f%% %7d %7d %9s' % (name, s['n'], s['command_acc'], s['exact_match'],
+                                                           s['unsafe'], s['missed'], median))
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     stem = 'intent_%s_%s' % (re.sub(r'[^A-Za-z0-9._-]+', '_', cfg['MODEL_ID']), datetime.now().strftime('%Y%m%d_%H%M%S'))
     fields = ['id', 'language', 'group', 'sentence', 'expected_command', 'expected_object',
-              'predicted_command', 'predicted_object', 'reply']
+              'predicted_command', 'predicted_object', 'reply', 'latency_s']
     with open(out / (stem + '.csv'), 'w', encoding='utf-8-sig', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction='ignore')
         writer.writeheader()

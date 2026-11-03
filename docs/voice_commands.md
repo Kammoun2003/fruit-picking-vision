@@ -62,10 +62,12 @@ Always exactly three keys:
 | Every other command has `object: null` | |
 | Unknown object → `NONE` | "give me an orange", "sort the cups" |
 | Two objects in one sentence → `NONE` | "give me the apple and the banana" (reply: one object at a time) |
+| …except for counting: several classes → `COUNT` with `object: null` | "how many apples and bananas?" — the robot reports every class, which answers the question and moves nothing |
 | Negation → `NONE` | "don't sort the bananas" |
 | Unclear reference → `NONE` | "give me that one", "sort it" |
 | `reply` never claims an action is done | ✗ "I gave you the apple" ✓ "I'll bring you an apple" |
 | `reply` never states a count | ✗ "There are 3 apples" ✓ "Let me check the apples" |
+| `reply` uses the language of the request | English request → English reply |
 
 The application rejects any answer that breaks these rules, and then sends nothing.
 
@@ -87,5 +89,7 @@ The test set is [tests/intent_test_set.csv](../tests/intent_test_set.csv): 60 se
 | Exact match | command **and** object both correct |
 | **Unsafe errors** | a motion command (`START_AUTO`, `SORT`, `REMOVE`, `PICK`, `START_SINGLE`) predicted where `NONE` or a non-motion command was expected |
 | Missed commands | `NONE` predicted where a real command was expected |
+
+Each run also records the **latency** of every LLM call (median and maximum, in seconds); shortcuts are excluded because they never reach the LLM.
 
 Results are reported per language and per group. Unsafe errors matter most: a missed command only annoys the user, while an unsafe error moves the robot when it should not. Every motion still needs a human confirmation, so this is a second line of defence, not the only one.

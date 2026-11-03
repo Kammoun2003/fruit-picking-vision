@@ -1,0 +1,61 @@
+﻿id,language,group,sentence,expected_command,expected_object,predicted_command,predicted_object,reply,latency_s
+1,en,basic,Sort everything on the table.,START_AUTO,null,START_AUTO,null,"Okay, I will start sorting all items on the table into their corresponding boxes.",3.38
+2,zh,basic,开始分拣,START_AUTO,null,START_AUTO,null,好的，我现在开始分拣桌上所有物品。,3.1
+3,en,basic,Put all the bananas in their box.,SORT,banana,SORT,banana,I will sort all bananas into their box.,3.43
+4,zh,basic,把土豆都分拣到箱子里,SORT,potato,SORT,potato,好的，我会把所有土豆分拣到对应的箱子里。,3.17
+5,en,basic,Remove the battery.,REMOVE,battery,REMOVE,battery,I will remove the battery into the waste bin.,3.16
+6,zh,basic,把电池拿走,REMOVE,battery,REMOVE,battery,好的，我会把电池丢进垃圾桶。,5.6
+7,en,basic,Give me an apple.,PICK,apple,PICK,apple,I will hand you an apple.,4.24
+8,zh,basic,把香蕉递给我,PICK,banana,PICK,banana,好的，这就给你递一根香蕉。,4.48
+9,en,basic,How many potatoes are on the table?,COUNT,potato,COUNT,potato,I will check how many potatoes are on the table.,4.5
+10,zh,basic,桌上有几个苹果？,COUNT,apple,COUNT,apple,我来数一下桌上的苹果数量。,2.88
+11,en,basic,Sort one object.,START_SINGLE,null,START_SINGLE,null,"Okay, I will sort one object now.",2.96
+12,zh,basic,抓取一个,START_SINGLE,null,START_SINGLE,null,好的，我现在开始分拣一个物品。,11.09
+13,en,basic,status,STATUS,null,STATUS,null,查询实际任务状态 / Query task state,null
+14,zh,basic,查询状态,STATUS,null,STATUS,null,查询实际任务状态 / Query task state,null
+15,en,basic,stop,STOP,null,STOP,null,软件停止 / Software stop,null
+16,zh,basic,停止,STOP,null,STOP,null,软件停止 / Software stop,null
+17,en,basic,"Hello, who are you?",NONE,null,NONE,null,"Hello, I am a fruit-sorting robot.",6.79
+18,zh,basic,你好,NONE,null,NONE,null,你好，我是水果分拣机器人，请问有什么可以帮您的？,4.62
+19,en,paraphrase,Could you hand me a bell pepper?,PICK,pepper,PICK,pepper,I will hand you one bell pepper.,3.64
+20,zh,paraphrase,给我一个辣椒,PICK,pepper,PICK,pepper,好的，这就给您拿一个辣椒。,4.04
+21,zh,paraphrase,把青椒都放到它的箱子里,SORT,pepper,SORT,pepper,好的，我会把所有青椒分拣到对应的箱子里。,9.4
+22,zh,paraphrase,马铃薯有多少个？,COUNT,potato,COUNT,potato,我来数一下桌上有多少个马铃薯。,5.07
+23,en,paraphrase,"I'd like a banana, please.",PICK,banana,PICK,banana,I will hand you one banana.,3.42
+24,en,paraphrase,Clean up the table and put every fruit and vegetable in its box.,START_AUTO,null,START_AUTO,null,I will start sorting all items on the table into their respective boxes.,6.53
+25,en,paraphrase,What is on the table?,COUNT,null,COUNT,null,I will check what items are on the table.,3.04
+26,zh,paraphrase,桌子上有什么东西？,COUNT,null,COUNT,null,我来查看一下桌子上的物品。,2.98
+27,en,paraphrase,Tidy away the apples.,SORT,apple,SORT,apple,I will sort all apples into their box.,3.18
+28,en,paraphrase,Get rid of anything that isn't food.,REMOVE,battery,REMOVE,battery,I will remove all non-food intruders into the waste bin.,8.94
+29,en,unknown_object,Give me an orange.,NONE,null,NONE,null,"Sorry, I can only handle bananas, peppers, potatoes, apples and batteries.",5.22
+30,zh,unknown_object,把西红柿给我,NONE,null,NONE,null,抱歉，我无法处理西红柿。,3.02
+31,en,unknown_object,Sort the cups.,NONE,null,NONE,null,I cannot sort cups as they are not a recognized food item.,13.35
+32,en,unknown_object,How many tomatoes are there?,NONE,null,NONE,null,"Sorry, I can only count bananas, peppers, potatoes, apples, or batteries.",5.86
+33,zh,unknown_object,把手机拿走,NONE,null,NONE,null,抱歉，我无法处理手机这类物品。,7.28
+34,en,unknown_object,Pick up the pen.,NONE,null,NONE,null,"Sorry, I cannot handle pens.",5.13
+35,en,negation,Don't sort the bananas.,NONE,null,NONE,null,I cannot process this negation request.,6.58
+36,zh,negation,不要拿苹果,NONE,null,NONE,null,我不会拿苹果的。,5.28
+37,en,negation,Do not remove the battery yet.,NONE,null,NONE,null,I will not remove the battery right now.,4.51
+38,en,negation,I don't want a potato.,NONE,null,NONE,null,"I'm sorry, I can't process that request.",4.92
+39,en,two_objects,Give me the apple and the banana.,NONE,null,NONE,null,I can only hand you one type of fruit at a time.,2.5
+40,zh,two_objects,把香蕉和辣椒都给我,NONE,null,NONE,null,抱歉，我一次只能递给您一类食物。,2.98
+41,en,two_objects,Sort the apples and the potatoes.,NONE,null,NONE,null,I can only sort one food class at a time; please specify either apples or potatoes.,4.73
+42,en,two_objects,How many apples and bananas are there?,COUNT,null,COUNT,null,I will check how many apples and bananas are on the table.,2.27
+43,en,ambiguous,Give me that one.,NONE,null,NONE,null,"I'm not sure which item you're referring to, could you specify it clearly?",3.24
+44,zh,ambiguous,把它放进去,NONE,null,NONE,null,抱歉，我不清楚您指的是哪个物品，请明确说明。,5.03
+45,en,ambiguous,Sort it.,NONE,null,NONE,null,"I'm not sure which item you want me to sort, could you clarify?",5.62
+46,en,ambiguous,Take something.,NONE,null,NONE,null,I'm not sure what you'd like me to do.,4.22
+47,en,command_object_pair,Give me the battery.,REMOVE,battery,REMOVE,battery,I will remove the battery into the waste bin.,5.45
+48,en,command_object_pair,Pick up the battery.,REMOVE,battery,REMOVE,battery,I will remove the battery into the waste bin.,5.55
+49,en,command_object_pair,Remove the apple.,NONE,null,NONE,null,I cannot remove food items.,2.71
+50,zh,command_object_pair,把苹果清除掉,NONE,null,NONE,null,抱歉，我不能移除食物类物品。,4.45
+51,en,command_object_pair,Sort the batteries.,REMOVE,battery,REMOVE,battery,I will remove the batteries into the waste bin.,8.84
+52,en,command_object_pair,How many batteries are there?,COUNT,battery,COUNT,battery,I will check how many batteries are on the table.,5.89
+53,en,stop_status_via_llm,Please stop now!,STOP,null,STOP,null,"Okay, I will stop the current task right now.",6.41
+54,zh,stop_status_via_llm,快停下来,STOP,null,STOP,null,好的，我现在停止当前任务。,2.84
+55,en,stop_status_via_llm,What are you doing right now?,STATUS,null,STATUS,null,I am checking my current working state for you.,3.08
+56,zh,stop_status_via_llm,机器人现在是什么状态？,STATUS,null,STATUS,null,我现在为您查询机器人当前状态。,7.79
+57,en,chit_chat,Thank you!,NONE,null,NONE,null,You're welcome!,2.84
+58,zh,chit_chat,谢谢,NONE,null,NONE,null,不客气。,5.15
+59,en,chit_chat,What's the weather like today?,NONE,null,NONE,null,"I'm sorry, I can only help with fruit sorting tasks.",2.75
+60,en,chit_chat,Tell me a joke.,NONE,null,NONE,null,I'm a fruit-sorting robot and I can't tell jokes.,3.46

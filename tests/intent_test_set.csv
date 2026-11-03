@@ -40,7 +40,7 @@ id,language,group,sentence,expected_command,expected_object
 39,en,two_objects,"Give me the apple and the banana.",NONE,null
 40,zh,two_objects,"把香蕉和辣椒都给我",NONE,null
 41,en,two_objects,"Sort the apples and the potatoes.",NONE,null
-42,en,two_objects,"How many apples and bananas are there?",NONE,null
+42,en,two_objects,"How many apples and bananas are there?",COUNT,null
 43,en,ambiguous,"Give me that one.",NONE,null
 44,zh,ambiguous,"把它放进去",NONE,null
 45,en,ambiguous,"Sort it.",NONE,null
