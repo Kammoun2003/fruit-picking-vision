@@ -50,7 +50,7 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | Voice command spec (sort, pick, remove, count) | ✅ [docs/voice_commands.md](docs/voice_commands.md) |
 | Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |
 | LLM prompt + validation for the new commands | ✅ [voice/](voice/) (offline self-test passes) |
-| Intent accuracy on the test set | 🟡 60/60, 0 unsafe after prompt tuning ([run log](experiments/README.md)); an unseen test set is still needed |
+| Intent accuracy | ✅ 31/31 on an unseen hold-out set, 0 unsafe; mini model as accurate as pro and ~2× faster ([run log](experiments/README.md)) |
 
 ## Repository layout
 

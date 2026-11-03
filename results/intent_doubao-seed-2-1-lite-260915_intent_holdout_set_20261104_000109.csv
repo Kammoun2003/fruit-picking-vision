@@ -1,0 +1,32 @@
+﻿id,language,group,sentence,expected_command,expected_object,predicted_command,predicted_object,reply,latency_s
+1,en,basic,"Could you start sorting everything, please?",START_AUTO,null,START_AUTO,null,"Sure, I'll start sorting everything on the table into its box.",2.79
+2,zh,basic,把桌上的东西全部分好类,START_AUTO,null,START_AUTO,null,好的，我这就把桌上的所有东西分拣到对应的盒子里。,5.08
+3,en,basic,Put the potatoes away into their bin.,SORT,potato,SORT,potato,I'll sort all the potatoes into their bin.,2.36
+4,zh,basic,苹果都放回苹果箱,SORT,apple,SORT,apple,好的，我这就把苹果都放回苹果箱。,7.65
+5,en,basic,Throw the batteries in the waste bin.,REMOVE,battery,REMOVE,battery,I will remove the batteries into the waste bin.,4.54
+6,zh,basic,把异物清理掉,REMOVE,battery,REMOVE,battery,好的，我这就把异物清理掉。,5.41
+7,en,basic,Pass me a pepper.,PICK,pepper,PICK,pepper,"Sure, I will hand you a pepper.",3.51
+8,zh,basic,我想要一个土豆,PICK,potato,PICK,potato,好的，我这就给您拿一个土豆。,6.32
+9,en,basic,Count the bananas.,COUNT,banana,COUNT,banana,I will count the bananas on the table.,8.83
+10,zh,basic,现在桌上一共有多少东西？,COUNT,null,COUNT,null,好的，我这就统计一下桌上所有物品的数量。,4.41
+11,en,basic,Just sort a single item.,START_SINGLE,null,START_SINGLE,null,"Okay, I will sort a single item.",3.44
+12,en,stop_status_via_llm,"Hold on, stop everything!",STOP,null,STOP,null,Stopping all tasks now.,3.49
+13,zh,stop_status_via_llm,你在忙什么？,STATUS,null,STATUS,null,我正在待命，等待你的指令。,4.3
+14,en,paraphrase,Hand me a chilli.,PICK,pepper,PICK,pepper,"Sure, I will hand you a pepper.",2.93
+15,en,paraphrase,bannana please,PICK,banana,PICK,banana,"Sure, I'll pick a banana for you.",4.01
+16,zh,paraphrase,给我拿个甜椒,PICK,pepper,PICK,pepper,好的，我这就给您拿一个甜椒。,4.45
+17,zh,paraphrase,请给我一个 apple,PICK,apple,PICK,apple,好的，我这就给您拿一个苹果。,2.1
+18,en,unknown_object,Grab me a strawberry.,NONE,null,NONE,null,"Sorry, I can't hand you a strawberry.",3.62
+19,zh,unknown_object,把杯子放进箱子,NONE,null,NONE,null,我只能分拣香蕉、辣椒、土豆、苹果，电池会丢进垃圾桶，杯子我处理不了。,3.69
+20,en,unknown_object,How many oranges do you see?,NONE,null,NONE,null,"I can only sort and count bananas, peppers, potatoes, apples and batteries.",5.79
+21,en,negation,Never touch the apples.,NONE,null,NONE,null,I won't touch the apples.,3.21
+22,zh,negation,别分拣土豆,NONE,null,NONE,null,好的，我不会分拣土豆。,2.98
+23,en,two_objects,Give me a banana and a potato.,NONE,null,NONE,null,I can only hand you one item at a time.,4.39
+24,zh,two_objects,苹果和电池各有几个？,COUNT,null,COUNT,null,好的，我这就统计苹果和电池的数量。,2.85
+25,en,ambiguous,Put that over there.,NONE,null,NONE,null,"Sorry, I can't understand which item you mean.",3.72
+26,zh,ambiguous,把那个给我,NONE,null,NONE,null,你说的是哪个？请明确说出水果或蔬菜的名称。,3.52
+27,en,ambiguous,Apple.,NONE,null,PICK,apple,"Sure, I'll get you an apple.",3.86
+28,en,command_object_pair,Can you hand me the battery?,REMOVE,battery,REMOVE,battery,I'll remove the battery and put it in the waste bin.,2.31
+29,en,command_object_pair,Remove the potatoes.,NONE,null,NONE,null,"I can only remove the battery intruder, not food items like potatoes.",7.11
+30,en,chit_chat,"Good morning, robot!",NONE,null,NONE,null,Good morning! How can I help you with sorting today?,5.99
+31,zh,chit_chat,你叫什么名字？,NONE,null,NONE,null,我是水果分拣机器人，专注于分拣各类水果。,1.93

@@ -1,0 +1,129 @@
+{
+  "model": "doubao-seed-2-1-lite-260915",
+  "tests": "tests\\intent_test_set.csv",
+  "time": "2026-11-03T23:58:42",
+  "overall": {
+    "n": 60,
+    "command_acc": 98.3,
+    "exact_match": 98.3,
+    "unsafe": 0,
+    "missed": 1,
+    "api_errors": 0,
+    "latency_median_s": 4.83,
+    "latency_max_s": 15.14
+  },
+  "by_language": {
+    "en": {
+      "n": 38,
+      "command_acc": 97.4,
+      "exact_match": 97.4,
+      "unsafe": 0,
+      "missed": 1,
+      "api_errors": 0,
+      "latency_median_s": 4.83,
+      "latency_max_s": 15.14
+    },
+    "zh": {
+      "n": 22,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 4.83,
+      "latency_max_s": 7.77
+    }
+  },
+  "by_group": {
+    "ambiguous": {
+      "n": 4,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 4.21,
+      "latency_max_s": 5.44
+    },
+    "basic": {
+      "n": 18,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 5.21,
+      "latency_max_s": 14.86
+    },
+    "chit_chat": {
+      "n": 4,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 5.88,
+      "latency_max_s": 11.77
+    },
+    "command_object_pair": {
+      "n": 6,
+      "command_acc": 83.3,
+      "exact_match": 83.3,
+      "unsafe": 0,
+      "missed": 1,
+      "api_errors": 0,
+      "latency_median_s": 4.83,
+      "latency_max_s": 8.74
+    },
+    "negation": {
+      "n": 4,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 4.4,
+      "latency_max_s": 5.84
+    },
+    "paraphrase": {
+      "n": 10,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 4.33,
+      "latency_max_s": 14.43
+    },
+    "stop_status_via_llm": {
+      "n": 4,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 4.67,
+      "latency_max_s": 8.75
+    },
+    "two_objects": {
+      "n": 4,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 4.62,
+      "latency_max_s": 7.86
+    },
+    "unknown_object": {
+      "n": 6,
+      "command_acc": 100.0,
+      "exact_match": 100.0,
+      "unsafe": 0,
+      "missed": 0,
+      "api_errors": 0,
+      "latency_median_s": 4.95,
+      "latency_max_s": 15.14
+    }
+  }
+}

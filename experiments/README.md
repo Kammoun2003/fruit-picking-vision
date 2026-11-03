@@ -27,6 +27,22 @@ Model `doubao-seed-2-1-pro-260628` (Volcengine Ark), `temperature=0`, thinking d
 - **Caveat:** the prompt was tuned on this same test set, so 100 % is optimistic. A new, unseen set of sentences is needed for an honest final score.
 - **Latency:** 4–5 s median per LLM call is slow for a spoken command. Next: compare a lighter model on the same set.
 
+## Hold-out set and model comparison (2026-11-03/04)
+
+The hold-out set [tests/intent_holdout_set.csv](../tests/intent_holdout_set.csv) has 31 new sentences (18 EN, 13 ZH) written after prompt v3 was frozen. Every model below was run **once** on each set with prompt v3, without any further change.
+
+| Model | Tuning set (60) | Hold-out set (31) | Unsafe | Median latency tuning / hold-out |
+|---|---|---|---|---|
+| `doubao-seed-2-1-pro-260628` | 60/60 | **31/31** | 0 | 4.5 s / 4.9 s |
+| `doubao-seed-2-1-lite-260915` | 59/60 | 30/31 | **1** | 4.8 s / 3.7 s |
+| `doubao-seed-2-0-mini-260428` | 60/60 | **31/31** | 0 | **3.1 s / 2.2 s** |
+
+- **Prompt v3 generalises:** 31/31 on sentences it was never tuned on, with the pro model and with the mini model. The 100 % on the tuning set was not only overfitting.
+- **lite errors:** "How many batteries are there?" → `NONE` (missed), and "Apple." → `PICK apple` (**unsafe**: a one-word request was treated as a motion).
+- **mini** was as accurate as pro and the fastest. It is the candidate for the robot demo.
+- `doubao-seed-1-6-flash-250828` and `doubao-1-5-lite-32k-250115` are listed by the API but return HTTP 404 for this account (not activated).
+- **Limits:** one run per model and set; latency includes the network and varies over the day. Before choosing mini for good, repeat both runs at another time of day.
+
 ## Entry template
 
 ### `<run name>`

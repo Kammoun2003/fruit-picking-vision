@@ -29,6 +29,15 @@ python voice\evaluate.py
 
 The script stops after the first sentence if the API call fails, so a wrong key does not cost a full run. Requests use `temperature=0` so repeated runs are comparable.
 
+Other options:
+
+```bat
+python voice\evaluate.py --tests tests\intent_holdout_set.csv          # the unseen hold-out set
+python voice\evaluate.py --model doubao-seed-2-0-mini-260428           # another model, same .env
+```
+
+Use the hold-out set only to measure, never to tune the prompt; otherwise it stops being unseen.
+
 Each run writes `results/intent_<model>_<time>.csv` (every sentence with the expected and predicted command, object and reply) and a `.json` summary with the scores overall, per language and per group:
 
 | Score | Meaning |

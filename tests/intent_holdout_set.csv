@@ -1,0 +1,32 @@
+id,language,group,sentence,expected_command,expected_object
+1,en,basic,"Could you start sorting everything, please?",START_AUTO,null
+2,zh,basic,"把桌上的东西全部分好类",START_AUTO,null
+3,en,basic,"Put the potatoes away into their bin.",SORT,potato
+4,zh,basic,"苹果都放回苹果箱",SORT,apple
+5,en,basic,"Throw the batteries in the waste bin.",REMOVE,battery
+6,zh,basic,"把异物清理掉",REMOVE,battery
+7,en,basic,"Pass me a pepper.",PICK,pepper
+8,zh,basic,"我想要一个土豆",PICK,potato
+9,en,basic,"Count the bananas.",COUNT,banana
+10,zh,basic,"现在桌上一共有多少东西？",COUNT,null
+11,en,basic,"Just sort a single item.",START_SINGLE,null
+12,en,stop_status_via_llm,"Hold on, stop everything!",STOP,null
+13,zh,stop_status_via_llm,"你在忙什么？",STATUS,null
+14,en,paraphrase,"Hand me a chilli.",PICK,pepper
+15,en,paraphrase,"bannana please",PICK,banana
+16,zh,paraphrase,"给我拿个甜椒",PICK,pepper
+17,zh,paraphrase,"请给我一个 apple",PICK,apple
+18,en,unknown_object,"Grab me a strawberry.",NONE,null
+19,zh,unknown_object,"把杯子放进箱子",NONE,null
+20,en,unknown_object,"How many oranges do you see?",NONE,null
+21,en,negation,"Never touch the apples.",NONE,null
+22,zh,negation,"别分拣土豆",NONE,null
+23,en,two_objects,"Give me a banana and a potato.",NONE,null
+24,zh,two_objects,"苹果和电池各有几个？",COUNT,null
+25,en,ambiguous,"Put that over there.",NONE,null
+26,zh,ambiguous,"把那个给我",NONE,null
+27,en,ambiguous,"Apple.",NONE,null
+28,en,command_object_pair,"Can you hand me the battery?",REMOVE,battery
+29,en,command_object_pair,"Remove the potatoes.",NONE,null
+30,en,chit_chat,"Good morning, robot!",NONE,null
+31,zh,chit_chat,"你叫什么名字？",NONE,null

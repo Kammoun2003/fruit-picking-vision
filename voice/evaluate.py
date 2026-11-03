@@ -69,6 +69,8 @@ def score(rows):
 
 def run(args):
     cfg = load_env(args.env)
+    if args.model:
+        cfg['MODEL_ID'] = args.model
     tests = load_tests(args.tests)[:args.limit or None]
     results = []
     for i, row in enumerate(tests, 1):
@@ -110,7 +112,8 @@ def run(args):
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    stem = 'intent_%s_%s' % (re.sub(r'[^A-Za-z0-9._-]+', '_', cfg['MODEL_ID']), datetime.now().strftime('%Y%m%d_%H%M%S'))
+    stem = 'intent_%s_%s_%s' % (re.sub(r'[^A-Za-z0-9._-]+', '_', cfg['MODEL_ID']), Path(args.tests).stem,
+                                datetime.now().strftime('%Y%m%d_%H%M%S'))
     fields = ['id', 'language', 'group', 'sentence', 'expected_command', 'expected_object',
               'predicted_command', 'predicted_object', 'reply', 'latency_s']
     with open(out / (stem + '.csv'), 'w', encoding='utf-8-sig', newline='') as f:
@@ -187,6 +190,7 @@ def main():
     p.add_argument('--tests', type=Path, default=REPO / 'tests' / 'intent_test_set.csv')
     p.add_argument('--env', type=Path, default=REPO / '.env', help='file with ARK_API_KEY, MODEL_ID, ARK_BASE_URL')
     p.add_argument('--out', type=Path, default=REPO / 'results')
+    p.add_argument('--model', help='override MODEL_ID from the .env file, e.g. to compare models')
     p.add_argument('--limit', type=int, default=0, help='only the first N sentences (0 = all)')
     p.add_argument('--delay', type=float, default=0.5, help='seconds between requests')
     p.add_argument('--selftest', action='store_true', help='offline check of the validator and shortcuts')

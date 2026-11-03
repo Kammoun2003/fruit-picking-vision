@@ -1,0 +1,32 @@
+﻿id,language,group,sentence,expected_command,expected_object,predicted_command,predicted_object,reply,latency_s
+1,en,basic,"Could you start sorting everything, please?",START_AUTO,null,START_AUTO,null,好的，我这就开始分拣桌上的所有物品。,1.48
+2,zh,basic,把桌上的东西全部分好类,START_AUTO,null,START_AUTO,null,好的，我会将桌上所有物品分类放入对应的箱子中。,4.39
+3,en,basic,Put the potatoes away into their bin.,SORT,potato,SORT,potato,好的，我这就把土豆分拣到它们的箱子里。,2.18
+4,zh,basic,苹果都放回苹果箱,SORT,apple,SORT,apple,好的，我这就把所有苹果分拣到苹果箱里。,8.72
+5,en,basic,Throw the batteries in the waste bin.,REMOVE,battery,REMOVE,battery,好的，我会把电池扔进垃圾桶。,2.3
+6,zh,basic,把异物清理掉,REMOVE,battery,REMOVE,battery,好的，我这就把异物清理到垃圾桶里。,4.33
+7,en,basic,Pass me a pepper.,PICK,pepper,PICK,pepper,好的，这就给您拿一个辣椒。,1.85
+8,zh,basic,我想要一个土豆,PICK,potato,PICK,potato,好的，这就给您拿一个土豆。,4.04
+9,en,basic,Count the bananas.,COUNT,banana,COUNT,banana,我来统计香蕉的数量。,3.28
+10,zh,basic,现在桌上一共有多少东西？,COUNT,null,COUNT,null,我无法直接查看桌面物品数量，请您确认具体的物品类别。,2.05
+11,en,basic,Just sort a single item.,START_SINGLE,null,START_SINGLE,null,好的，我这就分拣一个物品。,3.26
+12,en,stop_status_via_llm,"Hold on, stop everything!",STOP,null,STOP,null,好的，我这就停止当前所有操作。,5.26
+13,zh,stop_status_via_llm,你在忙什么？,STATUS,null,STATUS,null,我正在执行分拣水果和蔬菜的任务，请问有什么可以帮您？,3.0
+14,en,paraphrase,Hand me a chilli.,PICK,pepper,PICK,pepper,好的，这就给您拿辣椒。,2.86
+15,en,paraphrase,bannana please,PICK,banana,PICK,banana,好的，这就给您拿一根香蕉。,3.06
+16,zh,paraphrase,给我拿个甜椒,PICK,pepper,PICK,pepper,好的，这就给您拿一个甜椒。,1.86
+17,zh,paraphrase,请给我一个 apple,PICK,apple,PICK,apple,好的，这就给您拿一个苹果。,1.37
+18,en,unknown_object,Grab me a strawberry.,NONE,null,NONE,null,抱歉，我无法处理草莓相关的请求。,1.82
+19,zh,unknown_object,把杯子放进箱子,NONE,null,NONE,null,我无法执行该操作，请您明确相关指令。,1.64
+20,en,unknown_object,How many oranges do you see?,NONE,null,NONE,null,抱歉，我无法统计橙子的数量。,2.05
+21,en,negation,Never touch the apples.,NONE,null,NONE,null,好的，我不会触碰苹果。,1.97
+22,zh,negation,别分拣土豆,NONE,null,NONE,null,好的，我不会分拣土豆。,1.44
+23,en,two_objects,Give me a banana and a potato.,NONE,null,NONE,null,抱歉，我一次只能为您处理一个请求，请您明确需要哪一个物品。,2.77
+24,zh,two_objects,苹果和电池各有几个？,COUNT,null,COUNT,null,我无法直接看到桌面，无法确定苹果和电池的数量。,7.62
+25,en,ambiguous,Put that over there.,NONE,null,NONE,null,我不明确你要操作的具体物品，请明确说明需要处理的水果或物品。,1.96
+26,zh,ambiguous,把那个给我,NONE,null,NONE,null,我不明白你说的“那个”具体是什么，请明确一下物品。,2.41
+27,en,ambiguous,Apple.,NONE,null,NONE,null,抱歉，我不太明白您的意思，请您明确一下需求。,3.77
+28,en,command_object_pair,Can you hand me the battery?,REMOVE,battery,REMOVE,battery,好的，我会把电池放到废纸箱里。,2.21
+29,en,command_object_pair,Remove the potatoes.,NONE,null,NONE,null,抱歉，我无法执行移除土豆的操作。,1.98
+30,en,chit_chat,"Good morning, robot!",NONE,null,NONE,null,Good morning!,1.91
+31,zh,chit_chat,你叫什么名字？,NONE,null,NONE,null,我是水果分拣机器人。,1.46
