@@ -1,0 +1,30 @@
+# Datasets, images, archives
+datasets/
+data/
+*.zip
+*.rar
+*.7z
+*.png
+*.jpg
+*.jpeg
+*.xml
+
+# Model weights and training outputs
+*.pt
+*.pth
+*.onnx
+*.engine
+runs/
+work/
+
+# Secrets
+.env
+*.key
+*.pem
+
+# Python and editors
+__pycache__/
+.venv/
+.*env/
+.vscode/
+.idea/
