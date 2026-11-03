@@ -47,14 +47,18 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | Annotation assistant (pre-labeling S3–S6) | ⬜ |
 | First detector `fruit01` + evaluation | ⬜ [experiments/](experiments/) |
 | Deployment on the robot | ⬜ |
-| Voice commands for specific objects ("give me the banana") | ⬜ |
+| Voice command spec (sort, pick, remove, count) | ✅ [docs/voice_commands.md](docs/voice_commands.md) |
+| Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |
+| LLM prompt + validation for the new commands | ⬜ |
+| Intent accuracy on the test set | ⬜ |
 
 ## Repository layout
 
 ```
 configs/      class list
-docs/         pipeline, capture protocol, labeling guide, tool fixes
+docs/         pipeline, capture protocol, labeling guide, voice commands, tool fixes
 experiments/  run log and results (one entry per training run)
+tests/        intent test set for the voice commands
 ```
 
 Images, labels and model weights are not stored in git (see `.gitignore`).
