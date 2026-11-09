@@ -2,7 +2,7 @@
 
 Teaching a dual-arm service robot to **detect and pick plastic fruits and vegetables** with a YOLOv5 detector and a voice/LLM command interface.
 
-This repository documents my own work during an internship: the data-collection protocol, the labeling rules, tooling fixes, and (soon) training experiments and results. The robot control software, teaching material and lab infrastructure belong to the host lab and are **not** included.
+This repository documents my own work during an internship: the data-collection protocol, the labeling rules, tooling fixes, the training experiments and results, and the voice command layer. The robot control software, teaching material and lab infrastructure belong to the host lab and are **not** included.
 
 ## Goal
 
@@ -40,12 +40,13 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | Step | State |
 |---|---|
 | Capture protocol | ✅ [docs/data_collection.md](docs/data_collection.md) |
-| Image capture (head camera, 1280×720) | 🟡 6 sessions, 295 images |
+| Image capture (head camera, 1280×720) | ✅ 6 sessions, 295 images |
 | Labeling rules | ✅ [docs/labeling_guide.md](docs/labeling_guide.md) |
-| Seed labeling (S1 + S2, by hand) | 🟡 74 / 100 images |
+| Seed labeling (S1 + S2, by hand) | ✅ 100 images, 170 boxes |
 | LabelImg on Python 3.10 | ✅ fixed, see [docs/labelimg_python310_fix.md](docs/labelimg_python310_fix.md) |
-| Annotation assistant (pre-labeling S3–S6) | ⬜ |
-| First detector `fruit01` + evaluation | ⬜ [experiments/](experiments/) |
+| Annotation assistant `annotation01` + review of S3–S6 | ✅ 82 % of its 1 602 proposed boxes kept unchanged |
+| Detector `fruit01` | ✅ mAP50 0.984 / mAP50-95 0.876 on an unseen session, all 5 classes ([run log](experiments/README.md), [training](docs/training.md)) |
+| Detector module for the robot side | ✅ [detector/](detector/) (Python objects, original-image pixels, ~13 ms per image) |
 | Deployment on the robot | ⬜ |
 | Voice command spec (sort, pick, remove, count) | ✅ [docs/voice_commands.md](docs/voice_commands.md) |
 | Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |
@@ -56,9 +57,12 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 
 ```
 configs/      class list
-docs/         pipeline, capture protocol, labeling guide, voice commands, tool fixes
-experiments/  run log and results (one entry per training run)
-tests/        intent test set for the voice commands
+detector/     detection module returning results as Python objects
+docs/         pipeline, capture protocol, labeling guide, training, voice commands, tool fixes
+experiments/  run log (one entry per training or evaluation run)
+results/      result files: voice evaluations, training curves and confusion matrix
+scripts/      dataset building scripts (splits, session prefixes)
+tests/        intent test sets for the voice commands
 voice/        intent module (prompt, validation) and evaluation script
 ```
 

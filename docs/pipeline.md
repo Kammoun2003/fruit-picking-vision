@@ -35,4 +35,8 @@ The LLM never controls the robot directly:
 - "stop" and "status" bypass the LLM entirely;
 - an accepted request is not treated as a completed action.
 
-Extending this list with object-specific commands (pick *this* fruit, count a class) while keeping these rules is part of the planned work.
+The object-specific commands (sort, pick, remove, count a class) follow the same rules; see [voice_commands.md](voice_commands.md).
+
+## The interface between detection and grasping
+
+The detector side ends with [detector/fruit_detector.py](../detector/fruit_detector.py): for every frame it returns a list of `class_name`, `confidence` and `bbox` in original-image pixels. The grasping side takes it from there: depth at the box (depth aligned to color), 3D point in the camera frame, camera-to-robot transform from the head-camera calibration, then the motion.

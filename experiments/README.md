@@ -1,15 +1,79 @@
 # Experiment log
 
-One entry per training run. Every run gets a new name; old runs are never overwritten.
+One entry per training or evaluation run. Every run gets a new name; old runs are never overwritten.
 
-## Planned runs
+## Detector runs
 
-| Run | Question it answers |
-|---|---|
-| `annotation01` | Is a model trained on the seed set (S1 + S2) good enough to pre-label the other sessions? |
-| `fruit01` | Main detector, trained on all reviewed sessions, validated on whole held-out sessions |
-| `fruit01_25` / `_50` / `_100` | How does validation mAP grow with the amount of training data? |
-| low-light test | How much does `fruit01` drop on the darker session? |
+| Run | Question it answers | State |
+|---|---|---|
+| `annotation01` | Is a model trained on the seed set (S1 + S2) good enough to pre-label the other sessions? | ✅ yes, 82 % of its boxes kept unchanged |
+| `fruit01` | Main detector, trained on all reviewed sessions, validated on a whole held-out session | ✅ mAP50 0.984 on S4 |
+| `fruit02` | Do longer training (150 epochs) and more varied scenes improve box precision? | planned |
+| `fruit01` on S7 | Final score on a new session never used for any decision | planned |
+
+How the datasets were built: [docs/training.md](../docs/training.md).
+
+### `annotation01` (2026-11-07)
+
+- **Goal:** helper model to pre-label S3–S6.
+- **Data:** seed set S1 + S2, 100 images, mixed split (every 5th image → val): 80 train / 20 val. Boxes: apple 57, potato 52, pepper 49, banana 12, battery 0.
+- **Command:** training package defaults, from pretrained YOLOv5s, 100 epochs, batch 4, image size 640.
+- **Hardware / time:** GTX 1650 Ti 4 GB, 18 min.
+
+| Class | P | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| all | 0.987 | 1.000 | 0.995 | 0.907 |
+| banana | 0.984 | 1.000 | 0.995 | 0.786 |
+| pepper | 0.987 | 1.000 | 0.995 | 0.976 |
+| potato | 0.987 | 1.000 | 0.995 | 0.915 |
+| apple | 0.990 | 1.000 | 0.995 | 0.951 |
+
+- **Observations:** the val images are neighbouring frames of train images, so these scores are optimistic. Banana has the least precise boxes (9 training boxes). Battery cannot be detected (no training boxes). Curves: [results/annotation01/results.csv](../results/annotation01/results.csv).
+- **Next step:** use it to pre-label S3–S6 and measure it by the review.
+
+### Pre-label review (S3–S6)
+
+`annotation01` proposed 1 602 boxes on the 195 images of S3–S6 (confidence ≥ 0.25). Every image was then reviewed by hand. Matching proposals to the final labels (IoU ≥ 0.5):
+
+| Outcome | Boxes | Share of proposals |
+|---|---|---|
+| kept unchanged (IoU ≥ 0.9) | 1 314 | 82 % |
+| box adjusted | 69 | 4 % |
+| class changed | 174 | 11 % |
+| deleted (false or duplicate) | 45 | 3 % |
+| added by hand (missed) | 96 | – |
+
+- **Class changes:** batteries proposed as pepper (116) or potato (34) make up 150 of the 174; the model had never seen a battery. Between the food classes there were only 23 changes (mostly pepper ↔ apple).
+- **Missed objects:** potato 53, battery 31, banana 7, apple 4, pepper 1.
+- **Duplicates:** 34 objects got two boxes with different classes, because YOLOv5's NMS only merges boxes of the same class.
+- **S6** (empty table with non-target objects): all 10 proposals were false and deleted; the 12 images are kept as background examples.
+- **Final labels S3–S6:** apple 375, potato 368, banana 365, pepper 363, battery 182.
+- **Conclusion:** apart from the unknown battery class, the helper was right about 90 % of the time; reviewing was much faster than drawing.
+
+### `fruit01` (2026-11-08)
+
+- **Goal:** detector for the robot.
+- **Data:** all 295 reviewed images. Split by whole session: train S1, S2, S3, S5, S6 (244 images, 1 361 boxes); val **S4** (51 images, 462 boxes: banana 102, pepper 99, potato 101, apple 109, battery 51).
+- **Command:** same settings as `annotation01`, again from pretrained YOLOv5s (not from `annotation01`).
+- **Hardware / time:** GTX 1650 Ti 4 GB, 54 min; best epoch 97 of 100.
+
+| Class | P | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| all | 0.991 | 0.985 | 0.984 | 0.876 |
+| banana | 0.999 | 0.990 | 0.995 | 0.859 |
+| pepper | 0.969 | 1.000 | 0.972 | 0.872 |
+| potato | 0.990 | 1.000 | 0.995 | 0.890 |
+| apple | 0.999 | 0.936 | 0.962 | 0.905 |
+| battery | 0.999 | 1.000 | 0.995 | 0.854 |
+
+- **Observations:**
+  - Confusion matrix ([results/fruit01/confusion_matrix.png](../results/fruit01/confusion_matrix.png)): about **6 % of apples are predicted as pepper** and 1 % as potato, hence apple recall 0.94. Few misses (pepper 3 %, banana and potato 1 %), few false boxes on the background (mostly pepper).
+  - Battery: 51 / 51 found, no confusion.
+  - Slightly lower than `annotation01`, but measured on a whole unseen scene, so much more trustworthy.
+  - mAP50-95 was still rising at the end (0.77 at epoch 50 → 0.87 at epoch 100): longer training may give tighter boxes.
+  - S4 also selected `best.pt`, so the score is slightly optimistic; no settings were tuned on it.
+  - The same model through [detector/fruit_detector.py](../detector/fruit_detector.py) on S4: 454 correct, 5 false, 8 missed, mean IoU 0.93, ~13 ms per image.
+- **Next step:** integration on the robot; a new session S7 as the final test; possibly `fruit02`.
 
 ## Voice intent runs (2026-11-03)
 

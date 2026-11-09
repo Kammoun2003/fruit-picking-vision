@@ -36,16 +36,16 @@ Tool: LabelImg, format **Pascal VOC XML** (converted to YOLO TXT afterwards). Th
 
 Turn on *View → Auto Save mode* so moving to the next image saves the current one.
 
-## Seed set progress
+## Notes from the review
 
-74 of 100 seed images labeled.
+- A **bunch of bananas** is one object and gets one box, as for the other classes.
+- Two separate objects that touch still get two boxes. The helper model sometimes drew one box around two touching objects; such boxes were split.
+- The helper model proposed batteries as pepper or potato, because it had never seen one; every battery was checked by hand.
 
-| Class | Boxes |
-|---|---|
-| apple | 31 |
-| banana | 12 |
-| pepper | 23 |
-| potato | 26 |
-| battery | 0 |
+## Labeling result
 
-`banana` is under-represented so far, and `battery` does not appear in S1/S2; both need attention in the later sessions.
+| Set | Images | apple | potato | pepper | banana | battery |
+|---|---|---|---|---|---|---|
+| seed (S1 + S2, by hand) | 100 | 57 | 52 | 49 | 12 | 0 |
+| S3–S6 (pre-labeled, reviewed) | 195 | 375 | 368 | 363 | 365 | 182 |
+| **total** | **295** | **432** | **420** | **412** | **377** | **182** |

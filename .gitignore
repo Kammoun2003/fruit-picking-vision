@@ -28,3 +28,6 @@ __pycache__/
 .*env/
 .vscode/
 .idea/
+
+# Small training plots in results/ are kept
+!results/**/*.png
