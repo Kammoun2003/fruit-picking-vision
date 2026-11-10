@@ -12,6 +12,8 @@ Command-line check on images (no camera needed):
     python fruit_detector.py --source path/to/image_or_folder [--save out_dir]
 """
 import argparse
+import importlib.util
+import os
 from pathlib import Path
 import sys
 import time
@@ -26,6 +28,12 @@ class FruitDetector:
     def __init__(self, weights=HERE / 'weights' / 'fruit01_best.pt', yolov5_dir=HERE / 'yolov5',
                  device='', conf=0.25, iou=0.45, imgsz=640, max_det=100):
         """device: '' = first GPU if available else CPU, or '0', 'cpu'. conf: minimum confidence."""
+        # This YOLOv5 version runs 'pip install ultralytics' by itself when the package is missing,
+        # which on a Jetson could replace NVIDIA's PyTorch. Stop with a clear message instead.
+        if importlib.util.find_spec('ultralytics') is None:
+            raise ImportError("Package 'ultralytics' is missing: install it in a virtual environment with "
+                              "'pip install --no-deps ultralytics' (see README), never system-wide on the robot")
+        os.environ.setdefault('YOLO_OFFLINE', 'true')
         # YOLOv5 is imported from its own folder; its packages are called 'models' and 'utils'.
         sys.path.insert(0, str(Path(yolov5_dir).resolve()))
         from models.common import DetectMultiBackend
@@ -35,6 +43,9 @@ class FruitDetector:
         self._letterbox, self._nms, self._scale_boxes = letterbox, non_max_suppression, scale_boxes
 
         self.device = select_device(device)
+        if sys.platform != 'win32':  # the checkpoint was saved on Windows and contains WindowsPath objects
+            import pathlib
+            pathlib.WindowsPath = pathlib.PosixPath
         self.model = DetectMultiBackend(str(weights), device=self.device, fp16=False)
         self.stride = int(self.model.stride)
         self.imgsz = check_img_size(imgsz, s=self.stride)

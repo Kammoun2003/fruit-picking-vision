@@ -78,8 +78,44 @@ Run on session S4 (51 images, 462 objects, never used for training), matching ea
 
 The mean IoU of 0.93 also confirms that the boxes are in original-image pixels. The first call after loading is slower (warm-up).
 
+## Live view
+
+`live_demo.py` opens a window with the live RealSense image, the detections and the depth at each box centre (`apple 0.96 0.74m`). It only reads the camera.
+
+```bash
+python live_demo.py                      # first RealSense camera found
+python live_demo.py --serial <serial>    # a specific camera, e.g. the head camera
+```
+
 ## Requirements
 
-Tested with Python 3.10, torch 2.6 (CUDA 12.4), torchvision 0.21, numpy 2.2, OpenCV, Pillow, PyYAML and `ultralytics>=8.4.164`, which the YOLOv5 version used here imports. Not yet tested on the robot computer.
+Laptop (training and tests): Python 3.10, torch 2.6 (CUDA 12.4), torchvision 0.21, numpy 2.2, OpenCV, Pillow, PyYAML and `ultralytics>=8.4.164`, which the YOLOv5 version used here imports.
+
+### Running on the robot (Jetson AGX Orin)
+
+The robot runs Ubuntu 20.04, Python 3.8 and NVIDIA's Jetson build of PyTorch 2.1 (CUDA). That PyTorch must not be replaced, and the robot is shared with another project, so nothing is installed system-wide. A virtual environment reuses the system PyTorch, and `ultralytics` is installed without its dependencies (they would pull a PyTorch without GPU support):
+
+```bash
+python3 -m venv --system-site-packages ~/fruit_env
+source ~/fruit_env/bin/activate
+python -m pip install --upgrade pip              # Ubuntu 20.04's pip is too old for some options
+pip install --no-deps "ultralytics==8.4.183"
+python -c "import torch, ultralytics; print(torch.__version__, torch.cuda.is_available(), ultralytics.__version__)"
+```
+
+All other libraries were already installed; `polars` is not needed for detection. Before running, keep the Ultralytics settings inside the project folder instead of the shared user folder:
+
+```bash
+export YOLO_CONFIG_DIR=$PWD/.ultralytics YOLO_OFFLINE=true
+```
+
+Two problems met on the robot, both handled in `fruit_detector.py`:
+
+| Symptom | Cause | Handling |
+|---|---|---|
+| `cannot instantiate 'WindowsPath' on your system` | the model was trained on Windows; the checkpoint stores Windows path objects | on Linux, `WindowsPath` is mapped to `PosixPath` before loading |
+| YOLOv5 runs `pip install -U ultralytics` by itself | this YOLOv5 version does that when `ultralytics` cannot be imported | `FruitDetector` stops first with a clear message |
+
+Result: the model loads on the Orin's GPU and detects correctly on head-camera images.
 
 `fruit_detector.py` adds `yolov5/` to `sys.path`; YOLOv5's packages are called `models` and `utils`, which can clash with modules of the same name in the calling project.

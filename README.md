@@ -46,8 +46,9 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | LabelImg on Python 3.10 | ✅ fixed, see [docs/labelimg_python310_fix.md](docs/labelimg_python310_fix.md) |
 | Annotation assistant `annotation01` + review of S3–S6 | ✅ 82 % of its 1 602 proposed boxes kept unchanged |
 | Detector `fruit01` | ✅ mAP50 0.984 / mAP50-95 0.876 on an unseen session, all 5 classes ([run log](experiments/README.md), [training](docs/training.md)) |
-| Detector module for the robot side | ✅ [detector/](detector/) (Python objects, original-image pixels, ~13 ms per image) |
-| Deployment on the robot | ⬜ |
+| Detector module for the robot side | ✅ [detector/](detector/) (Python objects, original-image pixels, ~13 ms per image, live view) |
+| Detector running on the robot (Jetson AGX Orin GPU) | ✅ in a separate environment, see [detector/README.md](detector/README.md#running-on-the-robot-jetson-agx-orin) |
+| Grasping and task integration on the robot | ⬜ |
 | Voice command spec (sort, pick, remove, count) | ✅ [docs/voice_commands.md](docs/voice_commands.md) |
 | Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |
 | LLM prompt + validation for the new commands | ✅ [voice/](voice/) (offline self-test passes) |
