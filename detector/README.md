@@ -87,6 +87,35 @@ python live_demo.py                      # first RealSense camera found
 python live_demo.py --serial <serial>    # a specific camera, e.g. the head camera
 ```
 
+## Robot coordinates (`fruit_localizer.py`)
+
+Turns each detection into a 3D point in the robot's World frame, using the aligned depth image and the head-camera calibration (a 4×4 matrix `T_world_camera`, read from a JSON file):
+
+1. box centre `(u, v)` in color-image pixels;
+2. depth = **median of the valid depths** (0.10–3.00 m) in the central 30 % of the box, more robust than one pixel against holes and object edges;
+3. camera point from `(u, v, depth)` and the **color-stream intrinsics** (RealSense optical frame: x right, y down, z forward);
+4. `P_world = T_world_camera @ P_camera`. The matrix is checked to be a proper rigid transform when loaded.
+
+Detections without enough valid depth are **skipped** instead of being returned with a guessed position.
+
+```python
+from fruit_localizer import FruitLocalizer, load_transform
+
+localizer = FruitLocalizer(load_transform('calibration_result.json'))
+fruits = localizer.locate(color_bgr, depth_m, color_intrinsics)   # depth_m: depth aligned to color, metres
+# [{'class_name': 'apple', 'confidence': 0.97, 'bbox': [...], 'uv': [...], 'depth_m': ...,
+#   'xyz_camera': [...], 'xyz_world': [x, y, z]}, ...]
+```
+
+Live window with the World coordinates, or one frame as JSON (the camera is only read; nothing moves):
+
+```bash
+python fruit_localizer.py --calibration calibration_result.json --serial <serial>
+python fruit_localizer.py --calibration calibration_result.json --serial <serial> --once
+```
+
+The calibration itself (eye-to-hand, head camera to robot World frame) is done by a colleague and is not part of this repository. Offline checks with the preliminary matrix: rigid transform, exact pixel → 3D → pixel round trip, depth median robust to holes and outliers, detections without depth skipped. The coordinates still have to be checked against known reference points on the robot before they are used for arm motion.
+
 ## Requirements
 
 Laptop (training and tests): Python 3.10, torch 2.6 (CUDA 12.4), torchvision 0.21, numpy 2.2, OpenCV, Pillow, PyYAML and `ultralytics>=8.4.164`, which the YOLOv5 version used here imports.

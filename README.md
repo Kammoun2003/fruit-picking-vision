@@ -48,6 +48,7 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | Detector `fruit01` | ✅ mAP50 0.984 / mAP50-95 0.876 on an unseen session, all 5 classes ([run log](experiments/README.md), [training](docs/training.md)) |
 | Detector module for the robot side | ✅ [detector/](detector/) (Python objects, original-image pixels, ~13 ms per image, live view) |
 | Detector running on the robot (Jetson AGX Orin GPU) | ✅ in a separate environment, see [detector/README.md](detector/README.md#running-on-the-robot-jetson-agx-orin) |
+| Pixel → robot World coordinates (depth + calibration) | 🟡 [detector/fruit_localizer.py](detector/fruit_localizer.py), tested offline; robot check with reference points pending |
 | Grasping and task integration on the robot | ⬜ |
 | Voice command spec (sort, pick, remove, count) | ✅ [docs/voice_commands.md](docs/voice_commands.md) |
 | Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |

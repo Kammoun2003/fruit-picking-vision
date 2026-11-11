@@ -39,4 +39,4 @@ The object-specific commands (sort, pick, remove, count a class) follow the same
 
 ## The interface between detection and grasping
 
-The detector side ends with [detector/fruit_detector.py](../detector/fruit_detector.py): for every frame it returns a list of `class_name`, `confidence` and `bbox` in original-image pixels. The grasping side takes it from there: depth at the box (depth aligned to color), 3D point in the camera frame, camera-to-robot transform from the head-camera calibration, then the motion.
+[detector/fruit_detector.py](../detector/fruit_detector.py) returns, for every frame, a list of `class_name`, `confidence` and `bbox` in original-image pixels. [detector/fruit_localizer.py](../detector/fruit_localizer.py) adds stages 4 and 5: median depth in the box (depth aligned to color) → 3D point in the camera frame (color intrinsics) → point in the robot World frame with the head-camera calibration matrix. The grasping side receives `xyz_world` per object and plans the motion.
