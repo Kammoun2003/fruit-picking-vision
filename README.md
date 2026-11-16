@@ -54,7 +54,7 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |
 | LLM prompt + validation for the new commands | ✅ [voice/](voice/) (offline self-test passes) |
 | Command → robot actions (`/action` steps, checked replies, STOP) | 🟡 [voice/robot_bridge.py](voice/robot_bridge.py), 17 tests against a mock robot; real robot server to confirm |
-| Intent accuracy | ✅ 31/31 on an unseen hold-out set, 0 unsafe; mini model as accurate as pro and ~2× faster ([run log](experiments/README.md)) |
+| Intent accuracy | ✅ 31/31 on an unseen hold-out set, 0 unsafe; mini model as accurate as pro and ~2× faster, but replies in the wrong language, now corrected by a language guard ([run log](experiments/README.md)) |
 
 ## Repository layout
 

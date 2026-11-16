@@ -103,9 +103,27 @@ The hold-out set [tests/intent_holdout_set.csv](../tests/intent_holdout_set.csv)
 
 - **Prompt v3 generalises:** 31/31 on sentences it was never tuned on, with the pro model and with the mini model. The 100 % on the tuning set was not only overfitting.
 - **lite errors:** "How many batteries are there?" → `NONE` (missed), and "Apple." → `PICK apple` (**unsafe**: a one-word request was treated as a motion).
-- **mini** was as accurate as pro and the fastest. It is the candidate for the robot demo.
+- **mini** was as accurate as pro and the fastest, **but its replies are in the wrong language** (see the correction below). This comparison only scored the command and object, not the reply.
 - `doubao-seed-1-6-flash-250828` and `doubao-1-5-lite-32k-250115` are listed by the API but return HTTP 404 for this account (not activated).
 - **Limits:** one run per model and set; latency includes the network and varies over the day. Before choosing mini for good, repeat both runs at another time of day.
+
+### Correction: reply language (2026-11-16)
+
+A live test of the web demo with mini answered "give me an apple" in Chinese. Re-checking the saved results of the comparison above (answers from the model only; the bilingual stop/status shortcut replies are excluded):
+
+| Model | Tuning set: replies in the wrong language | Hold-out set |
+|---|---|---|
+| `doubao-seed-2-1-pro-260628` (v3) | 0 / 56 | 0 / 31 |
+| `doubao-seed-2-1-lite-260915` | 0 / 56 | 0 / 31 |
+| `doubao-seed-2-0-mini-260428` | **33 / 56** | **17 / 31** |
+
+So the earlier conclusion "mini is the candidate" was incomplete: mini picks the right command, but answers almost every English request in Chinese, despite the prompt rule.
+
+**Fix:** instead of tuning the prompt again (which would invalidate the frozen v3 results), `intent.match_language()` checks the reply after validation. If a request without Chinese characters gets a reply with Chinese, or the other way round, the reply is replaced by a fixed sentence in the request's language (e.g. "OK, I will hand you the apple."). The command and object are never changed, and the fixed sentences follow the reply rules (no "done", no numbers).
+
+**Check:** replaying every saved answer through the guard leaves **0** wrong-language replies in all runs; the command scores are unchanged by construction. The self-test has 4 new cases (27/27). `evaluate.py` now reports `model_wrong_language` (how often the model was wrong) and `reply_wrong_language` (what is left after the guard) for every new run.
+
+**Choice for the demo:** mini with the language guard (accurate, fastest, replies fixed by code); pro remains the choice if natural model-written replies matter more than speed.
 
 ## Entry template
 

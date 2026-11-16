@@ -50,6 +50,23 @@ SYSTEM_PROMPT = (
     'Never state a number of items: you cannot see the table.'
 )
 
+CJK = re.compile(r'[㐀-鿿]')
+ZH_NAMES = {'banana': '香蕉', 'pepper': '甜椒', 'potato': '土豆', 'apple': '苹果', 'battery': '电池'}
+# Fallback replies when the model answers in the wrong language. They follow the reply rules:
+# no claim that an action is done, no number of items.
+FALLBACK_REPLIES = {
+    'START_AUTO': ('OK, I will sort everything on the table.', '好的，我来分拣桌上的所有物品。'),
+    'SORT': ('OK, I will sort the {en} into their box.', '好的，我来把{zh}分拣到对应的盒子里。'),
+    'REMOVE': ('OK, I will remove the {en}.', '好的，我来把{zh}清除掉。'),
+    'PICK': ('OK, I will hand you the {en}.', '好的，我来把{zh}递给你。'),
+    'COUNT': ('Let me check the table.', '我来看一下桌上的情况。'),
+    'START_SINGLE': ('OK, I will sort one object.', '好的，我来分拣一个物品。'),
+    'STATUS': ('Let me check the robot status.', '我来查询一下机器人的状态。'),
+    'STOP': ('Stopping the current task.', '正在停止当前任务。'),
+    'NONE': ('Sorry, I can only sort, hand over, remove or count the items on the table.',
+             '抱歉，我只能分拣、递送、清除或清点桌上的物品。'),
+}
+
 STOP_WORDS = {'停止', '停止分拣', 'stop', 'stopsorting', '暂停'}
 STATUS_WORDS = {'状态', '查询状态', '当前状态', 'status', 'robotstatus'}
 
@@ -89,6 +106,22 @@ def parse_intent(content):
     return dict(command=command, object=obj, reply=reply)
 
 
+def wrong_language(request_text, reply):
+    """True when a Chinese request gets a reply without Chinese, or a non-Chinese request gets one with it."""
+    return bool(CJK.search(request_text)) != bool(CJK.search(reply))
+
+
+def match_language(request_text, intent):
+    """Replace a reply written in the wrong language by a fixed reply in the request's language.
+    The command and object are never changed."""
+    if not wrong_language(request_text, intent['reply']):
+        return intent
+    english, chinese = FALLBACK_REPLIES[intent['command']]
+    obj = intent['object'] or ''
+    template = chinese if CJK.search(request_text) else english
+    return dict(intent, reply=template.format(en=obj, zh=ZH_NAMES.get(obj, obj)))
+
+
 def build_payload(text, model_id, thinking='disabled'):
     payload = dict(model=model_id, stream=False, max_tokens=512, temperature=0,
                    messages=[dict(role='system', content=SYSTEM_PROMPT), dict(role='user', content=text)])
@@ -118,5 +151,5 @@ def ask_llm(text, cfg, timeout=45):
 
 
 def interpret(text, cfg):
-    """Shortcut first, otherwise ask the LLM and validate its answer."""
-    return shortcut(text) or parse_intent(ask_llm(text, cfg))
+    """Shortcut first, otherwise ask the LLM, validate its answer and fix the reply language."""
+    return shortcut(text) or match_language(text, parse_intent(ask_llm(text, cfg)))

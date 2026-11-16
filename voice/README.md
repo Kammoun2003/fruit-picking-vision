@@ -4,7 +4,7 @@ Turns a sentence into one validated command for the fruit robot, following [docs
 
 | File | Role |
 |---|---|
-| `intent.py` | allowed commands and classes, the LLM system prompt, the strict answer check (`parse_intent`), the stop/status shortcuts, one OpenAI-compatible API call |
+| `intent.py` | allowed commands and classes, the LLM system prompt, the strict answer check (`parse_intent`), the reply-language guard (`match_language`), the stop/status shortcuts, one OpenAI-compatible API call |
 | `evaluate.py` | runs [tests/intent_test_set.csv](../tests/intent_test_set.csv) through the LLM and scores it |
 | `robot_bridge.py` | runs a validated command on the robot's action API as a sequence of checked steps, stoppable between steps |
 | `robot_places.json` | destination name for each class and the hand-over place (placeholders until the robot side confirms them) |
@@ -13,13 +13,13 @@ Turns a sentence into one validated command for the fruit robot, following [docs
 
 ## Offline self-test (no key needed)
 
-Checks that the validator accepts correct answers, rejects wrong ones (e.g. `PICK battery`, `REMOVE apple`, extra keys, plain text) and that only the exact stop/status phrases skip the LLM.
+Checks that the validator accepts correct answers, rejects wrong ones (e.g. `PICK battery`, `REMOVE apple`, extra keys, plain text), that only the exact stop/status phrases skip the LLM, and that a reply in the wrong language is replaced while the command and object stay unchanged.
 
 ```bat
 python voice\evaluate.py --selftest
 ```
 
-Expected: `Self-test: 23/23 passed`.
+Expected: `Self-test: 27/27 passed`.
 
 ## Evaluation with an LLM
 
@@ -50,6 +50,8 @@ Each run writes `results/intent_<model>_<time>.csv` (every sentence with the exp
 | exact | command and object are both correct |
 | unsafe | a motion command was predicted where no motion was expected |
 | missed | no usable command (`NONE` or an invalid answer) where a real command was expected |
+| model_wrong_language | the model replied in the other language (the guard then replaced the reply) |
+| reply_wrong_language | replies still in the wrong language after the guard (should be 0) |
 
 ## Using it in the web demo
 

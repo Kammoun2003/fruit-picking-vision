@@ -17,7 +17,8 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from intent import MOTIONS, IntentError, interpret, parse_intent, shortcut  # noqa: E402
+from intent import (MOTIONS, IntentError, ask_llm, match_language, parse_intent, shortcut,  # noqa: E402
+                    wrong_language)
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -59,10 +60,16 @@ def score(rows):
     unsafe = sum(r['predicted_command'] in MOTIONS and r['expected_command'] not in MOTIONS for r in rows)
     missed = sum(r['expected_command'] != 'NONE' and r['predicted_command'] in ('NONE', 'INVALID') for r in rows)
     errors = sum(r['predicted_command'] == 'ERROR' for r in rows)
+    # Reply language, for answers from the model (shortcut replies are bilingual on purpose):
+    # how often the model used the wrong language, and how many wrong ones remain after the fix.
+    answered = [r for r in rows if r['predicted_command'] not in ('ERROR', 'INVALID') and not shortcut(r['sentence'])]
+    fixed = sum(bool(r.get('reply_language_fixed')) for r in answered)
+    still_wrong = sum(wrong_language(r['sentence'], r['reply']) for r in answered)
     # Latency only counts answered LLM calls; shortcuts never reach the model.
     times = [r['latency_s'] for r in rows if r.get('latency_s') is not None and r['predicted_command'] != 'ERROR']
     pct = lambda k: round(100 * k / n, 1) if n else 0.0
     return dict(n=n, command_acc=pct(cmd), exact_match=pct(exact), unsafe=unsafe, missed=missed, api_errors=errors,
+                model_wrong_language=fixed, reply_wrong_language=still_wrong,
                 latency_median_s=round(statistics.median(times), 2) if times else None,
                 latency_max_s=max(times) if times else None)
 
@@ -74,10 +81,16 @@ def run(args):
     tests = load_tests(args.tests)[:args.limit or None]
     results = []
     for i, row in enumerate(tests, 1):
-        uses_llm = shortcut(row['sentence']) is None
+        hit = shortcut(row['sentence'])
+        uses_llm, language_fixed = hit is None, False
         start = time.perf_counter()
         try:
-            intent = interpret(row['sentence'], cfg)
+            if hit:
+                intent = hit
+            else:
+                raw = parse_intent(ask_llm(row['sentence'], cfg))
+                intent = match_language(row['sentence'], raw)
+                language_fixed = intent['reply'] != raw['reply']
             predicted, obj, reply = intent['command'], intent['object'], intent['reply']
         except IntentError as exc:
             predicted, obj, reply = 'INVALID', None, str(exc)
@@ -88,7 +101,8 @@ def run(args):
         print('%3s %s %-12s → %-12s %-8s %5s  %s' % (row['id'], 'ok ' if ok else 'XX ', row['expected_command'],
                                                      predicted, obj or '', '%.1fs' % latency if uses_llm else '-',
                                                      row['sentence']), flush=True)
-        results.append(dict(row, predicted_command=predicted, predicted_object=obj, reply=reply, latency_s=latency))
+        results.append(dict(row, predicted_command=predicted, predicted_object=obj, reply=reply, latency_s=latency,
+                            reply_language_fixed=language_fixed))
         if predicted == 'ERROR' and i == 1:
             raise SystemExit('First request failed (%s); stopping before spending the whole test set.' % reply)
         time.sleep(args.delay)
@@ -115,7 +129,7 @@ def run(args):
     stem = 'intent_%s_%s_%s' % (re.sub(r'[^A-Za-z0-9._-]+', '_', cfg['MODEL_ID']), Path(args.tests).stem,
                                 datetime.now().strftime('%Y%m%d_%H%M%S'))
     fields = ['id', 'language', 'group', 'sentence', 'expected_command', 'expected_object',
-              'predicted_command', 'predicted_object', 'reply', 'latency_s']
+              'predicted_command', 'predicted_object', 'reply', 'latency_s', 'reply_language_fixed']
     with open(out / (stem + '.csv'), 'w', encoding='utf-8-sig', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction='ignore')
         writer.writeheader()
@@ -176,9 +190,22 @@ def selftest(tests_path):
         elif hit:
             failures += 1
             print('FAIL shortcut should go to the LLM:', row['sentence'])
-    total = len(good) + len(bad) + shortcut_rows
-    print('Self-test: %d/%d passed (%d accept, %d reject, %d shortcut cases)'
-          % (total - failures, total, len(good), len(bad), shortcut_rows))
+    language = [  # (request, model intent, expected reply after match_language)
+        ('Give me an apple.', dict(command='PICK', object='apple', reply='好的，这就给你拿一个苹果。'),
+         'OK, I will hand you the apple.'),
+        ('把香蕉分拣好', dict(command='SORT', object='banana', reply='OK, sorting the bananas.'),
+         '好的，我来把香蕉分拣到对应的盒子里。'),
+        ('How many apples are there?', dict(command='COUNT', object='apple', reply='Let me check.'), 'Let me check.'),
+        ('你好', dict(command='NONE', object=None, reply='你好！'), '你好！'),
+    ]
+    for text, intent, expected in language:
+        fixed = match_language(text, intent)
+        if fixed['reply'] != expected or (fixed['command'], fixed['object']) != (intent['command'], intent['object']):
+            failures += 1
+            print('FAIL language:', text, '→', fixed['reply'])
+    total = len(good) + len(bad) + shortcut_rows + len(language)
+    print('Self-test: %d/%d passed (%d accept, %d reject, %d shortcut, %d reply-language cases)'
+          % (total - failures, total, len(good), len(bad), shortcut_rows, len(language)))
     return 1 if failures else 0
 
 
