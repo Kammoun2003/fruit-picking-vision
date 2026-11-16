@@ -3,54 +3,73 @@
 The earlier battery demo's robot server grasps with taught poses per object type and its own detector, so it cannot pick a fruit at a measured position. `fruit_server.py` is a separate server for this project with **the same `/action` methods and reply formats**, so [voice/robot_bridge.py](../voice/robot_bridge.py) and the voice demo work unchanged. The battery demo is not modified.
 
 ```
-voice demo ─► robot_bridge ─► POST :5000/action ─► fruit_server.py
-                                                    ├─ detection: fruit_localizer (class + World XYZ, head camera)
-                                                    └─ motion: dry-run (default) or the real arm
+voice demo ─► robot_bridge ─► POST :5000/action ─► fruit_server.py ─────────────► motion module
+                                                    WHAT: which object, where,      HOW: arm and hand
+                                                    work area, modes, stop          (fruit_motion.py)
+                                                    detection: fruit_localizer
 ```
+
+## Split of responsibilities
+
+| Server (this folder) | Motion module (`fruit_motion.py`, robot side) |
+|---|---|
+| detection with the fruit localizer (class + World XYZ) | approach, grasp and lift heights |
+| choice of the most confident object of the requested class | hand orientation for a top-down grasp |
+| work-area check before any motion | SDK calls (Cartesian moves for the grasp, recorded joint positions for places) |
+| work modes, automatic sorting, stop between objects | the recorded positions of the six places and home |
+| the `/action` replies | checking every SDK result |
+
+The motion module provides three functions that block until the motion has finished:
+
+```python
+pick_at(x, y, z) -> bool   # World frame, metres; z = top surface of the object (as from fruit_localizer)
+place_at(name)   -> bool   # box_banana, box_pepper, box_potato, box_apple, waste_bin, hand_over
+home()           -> bool
+```
+
+Only `True` counts as success; `False`, any other value or an exception is reported as a failed motion and the task stops.
 
 ## Methods
 
 | Method | What the server does |
 |---|---|
 | `detect_objects`, `check_object_exist`, `check_count`, `get_target_position` | a fresh camera frame through the fruit localizer |
-| `grasp_object(name)` | the most confident detection of `name`: move 10 cm above it → open the hand → straight down to 2 cm below its top surface → close → straight up 10 cm |
-| `move_object_to(name, to)` | move to the taught pose of place `to` and open the hand |
+| `grasp_object(name)` | the most confident detection of `name`; if inside the work area: `pick_at(x, y, z)` |
+| `move_object_to(name, to)` | `place_at(to)` if `to` is a known place and the object is held |
 | `set_work_mode`, `query_work_mode` | manual / auto |
 | `start_work` | automatic mode: everything into its place, batteries first, until nothing is left or an object cannot be grasped |
 | `suspend_work` | stops automatic mode before the next object |
-| `return_to_home` | arm to its idle position |
+| `return_to_home` | `home()` |
 
-`grasp_object` answers `[true, 0]` or `[false, code]`: 1 object not detected, 2 automatic mode, 3 outside the work area, 4 already holding an object, 5 motion failed, 6 grasp orientation not taught.
+`grasp_object` answers `[true, 0]` or `[false, code]`: 1 object not detected, 2 automatic mode, 3 outside the work area, 4 already holding an object, 5 motion failed.
 
 ## Configuration (`fruit_server_config.json`)
 
 | Key | Meaning |
 |---|---|
-| `workspace` | allowed World X/Y/Z range for a grasp; anything outside is refused |
-| `approach_height_m`, `grasp_offset_m`, `lift_height_m` | heights relative to the fruit's top surface |
-| `grasp_orientation` | `[rx, ry, rz]` of the hand for a top-down grasp, taught on the robot (`null` = not yet) |
-| `places` | taught pose `[x, y, z, rx, ry, rz]` of each place; names match [voice/robot_places.json](../voice/robot_places.json) |
+| `workspace` | allowed World X/Y/Z range for a grasp; anything outside never reaches the motion module |
+| `places` | the place names `move_object_to` accepts (same as [voice/robot_places.json](../voice/robot_places.json)) |
 | `class_places` | which place each class goes to in automatic mode |
 
-The work area comes from the first measurements on the table. The grasp orientation and the six place poses still have to be taught with the arm.
+The work area comes from the first measurements on the table and has to be confirmed with the arm.
 
-## Dry-run (default): nothing moves
+## Running
+
+Dry-run (default), nothing moves; the planned steps are printed:
 
 ```bash
 python fruit_server.py --calibration <calibration_result.json> --serial <head camera serial>
 ```
 
-Every planned pose is printed (`movej`, `movel`, `hand`) instead of being executed. A grasped object is hidden from later detections, so SORT and automatic mode finish as they would for real. This is the first test on the robot: real camera, real detections, real World coordinates, voice commands through the bridge, and no motion.
+A grasped object is hidden from later detections in dry-run, so SORT and automatic mode finish as they would for real. This is the first test on the robot: real camera, real detections, real World coordinates, voice commands through the bridge, no motion.
 
-## Real motion
+With the robot-side motion module:
 
-`--real` uses the lab's arm and hand classes (`Movej` / `Movel` to a pose, the hand's prepare and grasp postures). Connecting them (`make_real_motion`) is done on the robot together with the robot team, and only after:
+```bash
+python fruit_server.py --calibration <calibration_result.json> --serial <serial> --motion-module <path>/fruit_motion.py
+```
 
-1. the reference-point check of the World coordinates with the arm,
-2. teaching `grasp_orientation` and the six place poses,
-3. a dry-run of the same command whose printed poses have been checked.
-
-The software stop finishes the current motion; the hardware emergency stop stays at hand.
+The module's folder is added to the import path, so its own helpers (position manager, connection adapter) are found. Use it only after the reference-point check of the World coordinates, the measured grasp orientation and heights, and a dry-run of the same command. The software stop finishes the current motion; the hardware emergency stop stays at hand.
 
 ## Tests
 
@@ -58,4 +77,4 @@ The software stop finishes the current motion; the hardware emergency stop stays
 python robot/test_fruit_server.py
 ```
 
-11 tests: the voice bridge against this server over HTTP with a fake camera (fruit positions measured on the real table): the planned grasp poses for PICK, SORT until none is left, REMOVE to the waste bin, COUNT and STATUS, a refused grasp outside the work area, a missing object, automatic mode (battery first, stops at an unreachable object), grasp refused in automatic mode, an unknown method; and the real motion layer with a fake arm: refused until the grasp orientation and places are taught, the exact call order, and a failed motion.
+15 tests with a fake camera (fruit positions measured on the real table). Through the voice bridge over HTTP: the planned grasp steps for PICK, SORT until none is left, REMOVE to the waste bin, COUNT and STATUS, a grasp outside the work area, a missing object, an unknown place, automatic mode (battery first, stops at an unreachable object), a grasp refused in automatic mode, an unknown method. With motion module files: World coordinates and place names reach the module (and its helper imports work), a draft returning `False`, an exception or a non-bool result count as failed motions, a module without the three functions is rejected, and a grasp outside the work area never reaches the module.

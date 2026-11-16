@@ -1,7 +1,7 @@
 """Fruit robot server: the battery demo's /action methods, backed by the fruit detector and World XYZ.
 
-    python fruit_server.py --calibration <result.json> --serial <head camera serial>          # dry-run
-    python fruit_server.py --calibration <result.json> --serial <head camera serial> --real   # arm moves
+    python fruit_server.py --calibration <result.json> --serial <head camera serial>
+    python fruit_server.py --calibration <result.json> --serial <serial> --motion-module <path>/fruit_motion.py
 
 POST /action with {"method": ..., "parameters": {...}}, same methods and reply formats as the battery
 demo's server, so voice/robot_bridge.py works unchanged:
@@ -10,14 +10,19 @@ demo's server, so voice/robot_bridge.py works unchanged:
     grasp_object, move_object_to, return_to_home                             (motion)
     set_work_mode, query_work_mode, start_work, suspend_work                 (modes, automatic sorting)
 
-Dry-run (default): nothing moves; every planned pose is printed and returned. A grasped object is
-hidden from later detections (3 cm radius) so that SORT and START_AUTO terminate as they would for real.
+The server decides WHAT to do (which object, where it is, whether it is inside the work area, modes,
+stopping); a motion module decides HOW the arm moves. A motion module provides three functions that
+block until the motion has finished:
 
-Grasp: approach above the fruit -> open the hand -> straight down -> close -> straight up. The fruit
-position is the top surface from fruit_localizer (World frame); the target height is that surface plus
-`grasp_offset_m` (negative = lower). Positions outside the configured work area are refused.
+    pick_at(x, y, z) -> bool    World frame, metres; z is the top surface of the object
+    place_at(name)   -> bool    one of the place names in the config
+    home()           -> bool
+
+Without --motion-module the built-in dry-run is used: nothing moves, the planned steps are printed, and
+a picked object is hidden from later detections (3 cm radius) so SORT and START_AUTO finish as for real.
 """
 import argparse
+import importlib.util
 import json
 import math
 from pathlib import Path
@@ -30,25 +35,22 @@ HERE = Path(__file__).resolve().parent
 for folder in (HERE, HERE.parent / 'detector'):
     sys.path.insert(0, str(folder))
 
-GRASP_ERRORS = {1: 'object not detected', 2: 'not allowed in automatic mode', 3: 'outside the work area',
-                4: 'already holding an object', 5: 'motion failed', 6: 'grasp pose not configured'}
+# grasp_object replies [false, code]
+NOT_DETECTED, AUTO_MODE, OUTSIDE_AREA, HOLDING, MOTION_FAILED = 1, 2, 3, 4, 5
 
 
 def load_config(path):
     cfg = json.loads(Path(path).read_text(encoding='utf-8'))
-    for key in ('workspace', 'places', 'approach_height_m', 'grasp_offset_m', 'lift_height_m'):
+    for key in ('workspace', 'places', 'class_places'):
         if key not in cfg:
             raise ValueError(f'config: missing {key}')
     for axis in 'xyz':
         lo, hi = cfg['workspace'][axis]
         if not lo < hi:
             raise ValueError(f'config: workspace {axis} must be [min, max]')
-    for name, pose in cfg['places'].items():
-        if pose is not None and (not isinstance(pose, list) or len(pose) != 6):
-            raise ValueError(f'config: place {name} must be null or [x, y, z, rx, ry, rz]')
-    orientation = cfg.get('grasp_orientation')
-    if orientation is not None and len(orientation) != 3:
-        raise ValueError('config: grasp_orientation must be null or [rx, ry, rz]')
+    unknown = [p for p in cfg['class_places'].values() if p not in cfg['places']]
+    if unknown:
+        raise ValueError('config: class_places uses unknown places ' + ', '.join(unknown))
     return cfg
 
 
@@ -60,7 +62,7 @@ class RealSenseVision:
         import numpy as np
         import pyrealsense2 as rs
         from fruit_localizer import FruitLocalizer, load_transform
-        self.np, self.rs = np, rs
+        self.np = np
         self.localizer = FruitLocalizer(load_transform(calibration), conf=conf)
         self.pipeline, config = rs.pipeline(), rs.config()
         if serial:
@@ -90,67 +92,62 @@ class RealSenseVision:
 
 # ---------------------------------------------------------------- motion
 class DryRunMotion:
-    """Prints and records every planned action; nothing moves."""
+    """Prints and records the planned steps; nothing moves. Heights only shape the printout."""
     dry_run = True
 
-    def __init__(self, verbose=True):
-        self.log, self.verbose = [], verbose
+    def __init__(self, approach_height=0.10, grasp_offset=-0.02, verbose=True):
+        self.approach, self.offset, self.verbose = approach_height, grasp_offset, verbose
+        self.log = []
 
-    def _do(self, action, *values):
-        entry = action + ' ' + ' '.join(json.dumps(v) for v in values)
-        self.log.append(entry)
-        if self.verbose:
-            print('  [dry-run]', entry, flush=True)
+    def _do(self, *steps):
+        for step in steps:
+            self.log.append(step)
+            if self.verbose:
+                print('  [dry-run]', step, flush=True)
         return True
 
-    def move_joint_space(self, pose):
-        return self._do('movej', pose)
+    def pick_at(self, x, y, z):
+        r = lambda v: round(v, 4)
+        return self._do(f'above {[r(x), r(y), r(z + self.approach)]}', 'hand open', f'down {[r(x), r(y), r(z + self.offset)]}',
+                        'hand close', f'up {[r(x), r(y), r(z + self.approach)]}')
 
-    def move_linear(self, pose):
-        return self._do('movel', pose)
-
-    def open_hand(self):
-        return self._do('hand', 'prepare/open')
-
-    def close_hand(self):
-        return self._do('hand', 'grasp/close')
+    def place_at(self, name):
+        return self._do(f'place {name}', 'hand open')
 
     def home(self):
         return self._do('home')
 
 
-class RealMotion:
-    """Drives one arm through the lab's grasp_demo classes (arm_controller.GraspArm style):
-    Movej / Movel return 0 on success; the hand has prepare and grasp postures."""
+class ModuleMotion:
+    """Calls pick_at / place_at / home of a motion module file (e.g. fruit_motion.py on the robot).
+    Anything other than True, including an exception, counts as a failed motion."""
     dry_run = False
 
-    def __init__(self, arm, hand):
-        self.arm, self.hand = arm, hand
+    def __init__(self, path):
+        path = Path(path).resolve()
+        sys.path.insert(0, str(path.parent))  # the module's own imports (position manager, adapters)
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        self.module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.module)
+        missing = [f for f in ('pick_at', 'place_at', 'home') if not callable(getattr(self.module, f, None))]
+        if missing:
+            raise ValueError(f'{path.name} has no ' + ', '.join(missing))
 
-    def move_joint_space(self, pose):
-        return self.arm.Movej(list(pose)) == 0
+    def _call(self, name, *args):
+        try:
+            return getattr(self.module, name)(*args) is True
+        except Exception as exc:
+            print(f'  [motion] {name}{args} raised {type(exc).__name__}: {exc}', flush=True)
+            return False
 
-    def move_linear(self, pose):
-        return self.arm.Movel(list(pose)) == 0
+    def pick_at(self, x, y, z):
+        return self._call('pick_at', float(x), float(y), float(z))
 
-    def open_hand(self):
-        self.hand.move_prepare_grasp_status()
-        return True
-
-    def close_hand(self):
-        self.hand.move_grasp_battery_status()
-        return True
+    def place_at(self, name):
+        return self._call('place_at', name)
 
     def home(self):
-        self.arm.move_to_idle_position()
-        return True
-
-
-def make_real_motion(cfg):
-    """Connect the arm and hand like the battery demo does. To be completed on the robot with the
-    lab's connection code (robot SDK object, IP, which arm); kept out of this file on purpose."""
-    raise NotImplementedError('Real motion is not connected yet: create the arm and hand objects here '
-                              '(see grasp_demo/scripts/ohandtest*.py) together with the robot team.')
+        return self._call('home')
 
 
 # ---------------------------------------------------------------- server logic
@@ -180,32 +177,20 @@ class FruitRobot:
         return all(lo <= v <= hi for v, (lo, hi) in zip(xyz, (self.cfg['workspace'][a] for a in 'xyz')))
 
     # ---------- motions
-    def _pose(self, x, y, z):
-        # Dry-run may run before the grasp orientation is taught; zeros only show the planned position.
-        orientation = self.cfg.get('grasp_orientation') or [0.0, 0.0, 0.0]
-        return [round(x, 4), round(y, 4), round(z, 4)] + list(orientation)
-
     def grasp(self, name):
         if self.mode == 'auto' and threading.current_thread() is not self.auto_thread:
-            return [False, 2]
+            return [False, AUTO_MODE]
         if self.holding:
-            return [False, 4]
+            return [False, HOLDING]
         target = self.best(name)
         if target is None:
-            return [False, 1]
-        x, y, z = target['xyz_world']
-        if not self.in_workspace((x, y, z)):
-            return [False, 3]
-        if self.cfg.get('grasp_orientation') is None and not self.motion.dry_run:
-            return [False, 6]
-        above = self._pose(x, y, z + self.cfg['approach_height_m'])
-        at = self._pose(x, y, z + self.cfg['grasp_offset_m'])
-        lifted = self._pose(x, y, z + self.cfg['lift_height_m'])
+            return [False, NOT_DETECTED]
+        if not self.in_workspace(target['xyz_world']):
+            return [False, OUTSIDE_AREA]
         with self.motion_lock:
-            ok = (self.motion.move_joint_space(above) and self.motion.open_hand()
-                  and self.motion.move_linear(at) and self.motion.close_hand() and self.motion.move_linear(lifted))
+            ok = self.motion.pick_at(*target['xyz_world'])
         if not ok:
-            return [False, 5]
+            return [False, MOTION_FAILED]
         self.holding = name
         if self.motion.dry_run:
             self.virtually_removed.append(target['xyz_world'])
@@ -216,30 +201,22 @@ class FruitRobot:
             return [False, f'not holding {name}']
         if to not in self.cfg['places']:
             return [False, f'unknown place {to}']
-        pose = self.cfg['places'][to]
-        if pose is None:
-            if not self.motion.dry_run:
-                return [False, f'place {to} not taught yet']
-            pose = f'<pose of {to}, not taught yet>'
         with self.motion_lock:
-            ok = self.motion.move_joint_space(pose) and self.motion.open_hand()
+            ok = self.motion.place_at(to)
         if not ok:
             return [False, 'motion failed']
         self.holding = None
         return [True, to]
 
-    def destination(self, name):
-        return self.cfg.get('class_places', {}).get(name)
-
     # ---------- automatic mode: everything into its place, intruders first
     def _auto_loop(self):
         while not self.suspend.is_set() and self.mode == 'auto':
-            found = [f for f in self.detections() if self.destination(f['class_name'])]
+            found = [f for f in self.detections() if f['class_name'] in self.cfg['class_places']]
             if not found:
                 break
             found.sort(key=lambda f: (f['class_name'] != 'battery', -f['confidence']))
             name = found[0]['class_name']
-            if self.grasp(name)[0] is not True or self.place(name, self.destination(name))[0] is not True:
+            if self.grasp(name)[0] is not True or self.place(name, self.cfg['class_places'][name])[0] is not True:
                 break
         self.mode = 'manual'
 
@@ -257,9 +234,7 @@ class FruitRobot:
             return 200, {'result': counts}
         if method == 'get_target_position':
             target = self.best(p.get('object_name'))
-            if target is None:
-                return 200, {'result': {}}
-            return 200, {'result': dict(zip('xyz', target['xyz_world']))}
+            return 200, {'result': dict(zip('xyz', target['xyz_world'])) if target else {}}
         if method == 'query_work_mode':
             return 200, {'result': self.mode}
         if method == 'set_work_mode':
@@ -297,6 +272,7 @@ def make_server(robot, host='127.0.0.1', port=5000, verbose=True):
             pass
 
         def do_POST(self):
+            method, params = '?', {}
             try:
                 if self.path != '/action':
                     raise ValueError('use POST /action')
@@ -304,9 +280,9 @@ def make_server(robot, host='127.0.0.1', port=5000, verbose=True):
                 method, params = body['method'], body.get('parameters') or {}
                 status, reply = robot.handle(method, params)
             except (ValueError, KeyError, TypeError) as exc:
-                method, params, status, reply = '?', {}, 400, {'error': str(exc)}
-            except Exception as exc:  # camera or arm error: answer instead of hanging
-                method, params, status, reply = method, params, 500, {'error': f'{type(exc).__name__}: {exc}'}
+                status, reply = 400, {'error': str(exc)}
+            except Exception as exc:  # camera error: answer instead of hanging
+                status, reply = 500, {'error': f'{type(exc).__name__}: {exc}'}
             if verbose:
                 print(f'{time.strftime("%H:%M:%S")}  {method}({json.dumps(params, ensure_ascii=False)})'
                       f'  ->  {json.dumps(reply, ensure_ascii=False)}', flush=True)
@@ -328,17 +304,18 @@ def main():
     p.add_argument('--config', default=str(HERE / 'fruit_server_config.json'))
     p.add_argument('--serial', help='head camera serial number')
     p.add_argument('--conf', type=float, default=0.5, help='minimum detection confidence for actions')
+    p.add_argument('--motion-module', help='fruit_motion.py with pick_at/place_at/home (default: dry-run)')
     p.add_argument('--host', default='127.0.0.1')
     p.add_argument('--port', type=int, default=5000)
-    p.add_argument('--real', action='store_true', help='move the real arm (default: dry-run)')
     a = p.parse_args()
 
     cfg = load_config(a.config)
-    motion = make_real_motion(cfg) if a.real else DryRunMotion()
+    motion = ModuleMotion(a.motion_module) if a.motion_module else DryRunMotion()
     vision = RealSenseVision(a.calibration, a.serial, a.conf)
     robot = FruitRobot(vision, motion, cfg)
     server = make_server(robot, a.host, a.port)
-    print(f'Fruit server on http://{a.host}:{a.port}/action  mode={"REAL ARM" if a.real else "dry-run (nothing moves)"}')
+    mode = f'motion module {a.motion_module}' if a.motion_module else 'dry-run (nothing moves)'
+    print(f'Fruit server on http://{a.host}:{a.port}/action  -  {mode}', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -49,7 +49,7 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | Detector module for the robot side | ✅ [detector/](detector/) (Python objects, original-image pixels, ~13 ms per image, live view) |
 | Detector running on the robot (Jetson AGX Orin GPU) | ✅ in a separate environment, see [detector/README.md](detector/README.md#running-on-the-robot-jetson-agx-orin) |
 | Pixel → robot World coordinates (depth + calibration) | 🟡 [detector/fruit_localizer.py](detector/fruit_localizer.py), tested offline; robot check with reference points pending |
-| Fruit robot server (`/action` methods, grasp at World XYZ, places, automatic mode) | 🟡 [robot/](robot/), dry-run, 11 tests through the voice bridge; arm connection and taught poses pending |
+| Fruit robot server (`/action` methods, grasp at World XYZ, places, automatic mode) | 🟡 [robot/](robot/), dry-run + motion-module interface (pick_at / place_at / home), 15 tests; robot-side motion module and measured poses pending |
 | Grasping and task integration on the robot | ⬜ |
 | Voice command spec (sort, pick, remove, count) | ✅ [docs/voice_commands.md](docs/voice_commands.md) |
 | Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |

@@ -1,10 +1,13 @@
-"""Tests: voice/robot_bridge.py against fruit_server.py over HTTP, with a fake camera. Nothing moves.
+"""Tests: voice/robot_bridge.py against fruit_server.py over HTTP, with a fake camera and fake motion
+modules. Nothing moves.
 
     python robot/test_fruit_server.py
 """
 import copy
 from pathlib import Path
 import sys
+import tempfile
+import textwrap
 import threading
 import time
 import unittest
@@ -12,7 +15,7 @@ import unittest
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'voice'))
-from fruit_server import DryRunMotion, FruitRobot, RealMotion, load_config, make_server  # noqa: E402
+from fruit_server import DryRunMotion, FruitRobot, ModuleMotion, load_config, make_server  # noqa: E402
 from robot_bridge import RobotBridge, RobotClient, RobotError, load_places  # noqa: E402
 
 CONFIG = load_config(HERE / 'fruit_server_config.json')
@@ -37,34 +40,15 @@ class FakeVision:
         return copy.deepcopy(self.fruits)
 
 
-class FakeArm:
-    def __init__(self, log):
-        self.log = log
-
-    def Movej(self, pose):
-        self.log.append(('movej', pose))
-        return 0
-
-    def Movel(self, pose):
-        self.log.append(('movel', pose))
-        return 0
-
-    def move_to_idle_position(self):
-        self.log.append(('home',))
-
-
-class FakeHand:
-    def __init__(self, log):
-        self.log = log
-
-    def move_prepare_grasp_status(self):
-        self.log.append(('open',))
-
-    def move_grasp_battery_status(self):
-        self.log.append(('close',))
+def write_module(folder, name, body):
+    path = Path(folder) / f'{name}.py'
+    path.write_text(textwrap.dedent(body), encoding='utf-8')
+    return path
 
 
 class ServerTest(unittest.TestCase):
+    """The bridge against the server in dry-run."""
+
     def setUp(self):
         self.motion = DryRunMotion(verbose=False)
         self.robot = FruitRobot(FakeVision(TABLE), self.motion, copy.deepcopy(CONFIG))
@@ -84,14 +68,10 @@ class ServerTest(unittest.TestCase):
     def test_pick_apple_plans_a_safe_grasp(self):
         task = self.run_task('PICK', 'apple')
         self.assertEqual(task['state'], 'done', task)
-        log = self.motion.log
-        # highest-confidence apple; approach 10 cm above, grasp 2 cm below the top surface, lift, hand-over
-        self.assertTrue(log[0].startswith('movej [-0.0748, -0.3793, -0.2055'), log[0])
-        self.assertEqual(log[1], 'hand "prepare/open"')
-        self.assertTrue(log[2].startswith('movel [-0.0748, -0.3793, -0.3255'), log[2])
-        self.assertEqual(log[3], 'hand "grasp/close"')
-        self.assertIn('hand_over', log[5])
-        self.assertEqual(log[6], 'hand "prepare/open"')
+        # most confident apple: 10 cm above, open, down to 2 cm below the top surface, close, up, hand-over
+        self.assertEqual(self.motion.log, ['above [-0.0748, -0.3793, -0.2055]', 'hand open',
+                                           'down [-0.0748, -0.3793, -0.3255]', 'hand close',
+                                           'up [-0.0748, -0.3793, -0.2055]', 'place hand_over', 'hand open'])
 
     def test_sort_apples_until_none_left(self):
         task = self.run_task('SORT', 'apple')
@@ -101,7 +81,7 @@ class ServerTest(unittest.TestCase):
     def test_remove_battery_to_waste_bin(self):
         task = self.run_task('REMOVE', 'battery')
         self.assertEqual(task['state'], 'done', task)
-        self.assertIn('waste_bin', self.motion.log[5])
+        self.assertIn('place waste_bin', self.motion.log)
 
     def test_count_and_status(self):
         self.assertEqual(self.bridge.query('COUNT', 'apple')['count'], 2)
@@ -116,19 +96,22 @@ class ServerTest(unittest.TestCase):
 
     def test_missing_object(self):
         self.robot.vision = FakeVision([])
-        task = self.run_task('PICK', 'potato')
-        self.assertIn('no potato', task['message'])
+        self.assertIn('no potato', self.run_task('PICK', 'potato')['message'])
+
+    def test_unknown_place_refused(self):
+        self.client.call('grasp_object', object_name='apple')
+        reply = self.client.call('move_object_to', object_name='apple', to='kitchen')
+        self.assertEqual(reply['result'], [False, 'unknown place kitchen'])
 
     def test_start_auto_battery_first_then_stops_at_unreachable(self):
-        task = self.run_task('START_AUTO')
-        self.assertEqual(task['state'], 'done', task)
+        self.assertEqual(self.run_task('START_AUTO')['state'], 'done')
         for _ in range(100):
             if self.client.call('query_work_mode')['result'] == 'manual':
                 break
             time.sleep(0.05)
-        places = [e for e in self.motion.log if e.startswith('movej "<pose of')]
-        self.assertIn('waste_bin', places[0])          # intruder first
-        self.assertEqual(len(places), 5)               # 2 apples, 2 peppers, battery; banana out of reach
+        places = [e for e in self.motion.log if e.startswith('place ')]
+        self.assertEqual(places[0], 'place waste_bin')  # intruder first
+        self.assertEqual(len(places), 5)                # 2 apples, 2 peppers, battery; banana out of reach
 
     def test_grasp_refused_in_auto_mode(self):
         self.client.call('set_work_mode', mode='auto')
@@ -139,27 +122,83 @@ class ServerTest(unittest.TestCase):
             self.client.call('fly_away')
 
 
-class RealMotionTest(unittest.TestCase):
-    def test_real_mode_needs_taught_orientation_and_places(self):
-        log = []
-        robot = FruitRobot(FakeVision(TABLE), RealMotion(FakeArm(log), FakeHand(log)), copy.deepcopy(CONFIG))
-        self.assertEqual(robot.grasp('apple'), [False, 6])
-        robot.cfg['grasp_orientation'] = [3.14, 0.0, 0.0]
-        self.assertEqual(robot.grasp('apple'), [True, 0])
-        self.assertEqual(robot.place('apple', 'hand_over'), [False, 'place hand_over not taught yet'])
-        robot.cfg['places']['hand_over'] = [0.3, -0.2, 0.1, 3.14, 0.0, 0.0]
-        self.assertEqual(robot.place('apple', 'hand_over'), [True, 'hand_over'])
-        self.assertEqual([e[0] for e in log], ['movej', 'open', 'movel', 'close', 'movel', 'movej', 'open'])
+class ModuleMotionTest(unittest.TestCase):
+    """A motion module file like fruit_motion.py: pick_at / place_at / home returning bool."""
 
-    def test_failed_motion_is_reported(self):
-        log = []
-        arm = FakeArm(log)
-        arm.Movel = lambda pose: -1
-        cfg = copy.deepcopy(CONFIG)
-        cfg['grasp_orientation'] = [3.14, 0.0, 0.0]
-        robot = FruitRobot(FakeVision(TABLE), RealMotion(arm, FakeHand(log)), cfg)
+    def setUp(self):
+        self.folder = tempfile.mkdtemp()
+        # a helper next to the module, like position_manager.py next to fruit_motion.py
+        write_module(self.folder, 'helper_positions', 'def load(name):\n    return [0.0] * 6\n')
+
+    def robot(self, module_path):
+        return FruitRobot(FakeVision(TABLE), ModuleMotion(module_path), copy.deepcopy(CONFIG))
+
+    def test_working_module_gets_world_coordinates_and_place_names(self):
+        path = write_module(self.folder, 'good_motion', '''
+            from helper_positions import load
+            CALLS = []
+            def pick_at(x, y, z):
+                CALLS.append(('pick_at', x, y, z)); return True
+            def place_at(name):
+                CALLS.append(('place_at', name, load(name))); return True
+            def home():
+                CALLS.append(('home',)); return True
+        ''')
+        robot = self.robot(path)
+        self.assertEqual(robot.grasp('apple'), [True, 0])
+        self.assertEqual(robot.place('apple', 'hand_over'), [True, 'hand_over'])
+        self.assertEqual(robot.handle('return_to_home', {}), (200, {'result': True}))
+        calls = robot.motion.module.CALLS
+        self.assertEqual(calls[0], ('pick_at', -0.0748, -0.3793, -0.3055))
+        self.assertEqual(calls[1], ('place_at', 'hand_over', [0.0] * 6))
+        self.assertEqual(calls[2], ('home',))
+
+    def test_draft_returning_false_is_a_failed_motion(self):
+        path = write_module(self.folder, 'draft_motion', '''
+            def pick_at(x, y, z):
+                print('[DRY-RUN] pick plan'); return False
+            def place_at(name):
+                return False
+            def home():
+                return False
+        ''')
+        robot = self.robot(path)
         self.assertEqual(robot.grasp('apple'), [False, 5])
         self.assertIsNone(robot.holding)
+
+    def test_exception_or_non_bool_is_a_failed_motion(self):
+        path = write_module(self.folder, 'bad_motion', '''
+            def pick_at(x, y, z):
+                raise RuntimeError('arm error 7')
+            def place_at(name):
+                return 'ok'
+            def home():
+                return 1
+        ''')
+        robot = self.robot(path)
+        self.assertEqual(robot.grasp('apple'), [False, 5])
+        robot.holding = 'apple'
+        self.assertEqual(robot.place('apple', 'hand_over'), [False, 'motion failed'])
+        self.assertEqual(robot.handle('return_to_home', {})[1], {'result': False})
+
+    def test_module_without_required_functions_is_rejected(self):
+        path = write_module(self.folder, 'incomplete_motion', 'def pick_at(x, y, z):\n    return True\n')
+        with self.assertRaises(ValueError):
+            ModuleMotion(path)
+
+    def test_outside_work_area_never_reaches_the_module(self):
+        path = write_module(self.folder, 'strict_motion', '''
+            CALLS = []
+            def pick_at(x, y, z):
+                CALLS.append((x, y, z)); return True
+            def place_at(name):
+                return True
+            def home():
+                return True
+        ''')
+        robot = self.robot(path)
+        self.assertEqual(robot.grasp('banana'), [False, 3])
+        self.assertEqual(robot.motion.module.CALLS, [])
 
 
 if __name__ == '__main__':
