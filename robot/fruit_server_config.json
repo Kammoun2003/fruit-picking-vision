@@ -1,0 +1,27 @@
+{
+  "_note": "World frame, metres and radians. Places are taught poses [x, y, z, rx, ry, rz]; null = not taught yet (dry-run only). The work area comes from the first measurements on the table and must be checked with the arm.",
+  "workspace": {
+    "x": [-0.25, 0.20],
+    "y": [-0.65, -0.25],
+    "z": [-0.40, -0.15]
+  },
+  "approach_height_m": 0.10,
+  "grasp_offset_m": -0.02,
+  "lift_height_m": 0.10,
+  "grasp_orientation": null,
+  "places": {
+    "box_banana": null,
+    "box_pepper": null,
+    "box_potato": null,
+    "box_apple": null,
+    "waste_bin": null,
+    "hand_over": null
+  },
+  "class_places": {
+    "banana": "box_banana",
+    "pepper": "box_pepper",
+    "potato": "box_potato",
+    "apple": "box_apple",
+    "battery": "waste_bin"
+  }
+}
