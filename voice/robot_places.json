@@ -1,0 +1,9 @@
+{
+  "_note": "Destination names sent as `to` in move_object_to. PLACEHOLDERS until the robot side confirms the real names.",
+  "banana": "box_banana",
+  "pepper": "box_pepper",
+  "potato": "box_potato",
+  "apple": "box_apple",
+  "battery": "waste_bin",
+  "hand_over": "hand_over"
+}
