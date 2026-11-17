@@ -48,13 +48,13 @@ The order is fixed in [configs/classes.txt](configs/classes.txt) and must never 
 | Detector `fruit01` | ✅ mAP50 0.984 / mAP50-95 0.876 on an unseen session, all 5 classes ([run log](experiments/README.md), [training](docs/training.md)) |
 | Detector module for the robot side | ✅ [detector/](detector/) (Python objects, original-image pixels, ~13 ms per image, live view) |
 | Detector running on the robot (Jetson AGX Orin GPU) | ✅ in a separate environment, see [detector/README.md](detector/README.md#running-on-the-robot-jetson-agx-orin) |
-| Pixel → robot World coordinates (depth + calibration) | 🟡 [detector/fruit_localizer.py](detector/fruit_localizer.py), tested offline; robot check with reference points pending |
-| Fruit robot server (`/action` methods, grasp at World XYZ, places, automatic mode) | 🟡 [robot/](robot/), dry-run + motion-module interface (pick_at / place_at / home), 15 tests; robot-side motion module and measured poses pending |
+| Pixel → robot World coordinates (depth + calibration) | 🟡 [detector/fruit_localizer.py](detector/fruit_localizer.py), checked on the robot without the arm (flat table within 0.3 mm, repeatable within 1–2 mm); reference-point check with the arm pending ([robot/refpoint_check.py](robot/refpoint_check.py)) |
+| Fruit robot server (`/action` methods, grasp at World XYZ, places, automatic mode) | 🟡 [robot/](robot/), full chain from the voice page tested on the robot in dry-run; robot-side motion module and measured poses pending |
 | Grasping and task integration on the robot | ⬜ |
 | Voice command spec (sort, pick, remove, count) | ✅ [docs/voice_commands.md](docs/voice_commands.md) |
 | Intent test set (60 sentences, EN + ZH) | ✅ [tests/intent_test_set.csv](tests/intent_test_set.csv) |
 | LLM prompt + validation for the new commands | ✅ [voice/](voice/) (offline self-test passes) |
-| Command → robot actions (`/action` steps, checked replies, STOP) | 🟡 [voice/robot_bridge.py](voice/robot_bridge.py), 17 tests against a mock robot; real robot server to confirm |
+| Command → robot actions (`/action` steps, checked replies, STOP) | ✅ [voice/robot_bridge.py](voice/robot_bridge.py), 17 tests against a mock robot; works with the fruit server on the robot |
 | Intent accuracy | ✅ 31/31 on an unseen hold-out set, 0 unsafe; mini model as accurate as pro and ~2× faster, but replies in the wrong language, now corrected by a language guard ([run log](experiments/README.md)) |
 
 ## Repository layout

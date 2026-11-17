@@ -71,10 +71,33 @@ python fruit_server.py --calibration <calibration_result.json> --serial <serial>
 
 The module's folder is added to the import path, so its own helpers (position manager, connection adapter) are found. Use it only after the reference-point check of the World coordinates, the measured grasp orientation and heights, and a dry-run of the same command. The software stop finishes the current motion; the hardware emergency stop stays at hand.
 
+## Reference-point check (`refpoint_check.py`)
+
+Before the arm grasps at camera coordinates, they are compared with the arm itself:
+
+```bash
+python refpoint_check.py --calibration <calibration_result.json> --serial <serial> --out refpoints.csv [--arm-units mm]
+```
+
+At each point (centre and the corners of the work area): put one fruit on the table, press Enter (the camera measures it), move the arm tip slowly to just above the fruit's centre, type the tip position shown by the controller. Every point is saved at once. `r` prints the table, `q` quits; `--report refpoints.csv` recomputes it later.
+
+The table lists dX, dY per point (camera − arm), the common offset, and what is left after removing it, with a diagnosis:
+
+| Diagnosis | Meaning |
+|---|---|
+| GOOD | every point within 10 mm in X/Y |
+| CONSTANT OFFSET | almost the same error everywhere: a tool or frame offset, corrected with one constant shift |
+| VARYING ERROR | the error changes across the table: check the work frame and the calibration first |
+
+Z is listed but not judged: the camera measures the top surface, and the tip stays above it.
+
 ## Tests
 
 ```bash
 python robot/test_fruit_server.py
+python robot/test_refpoint_check.py
 ```
+
+`test_refpoint_check.py`: 5 tests with synthetic arm positions around the measured table positions (small error, constant offset, an 8° rotation, Z ignored, report from a saved file).
 
 15 tests with a fake camera (fruit positions measured on the real table). Through the voice bridge over HTTP: the planned grasp steps for PICK, SORT until none is left, REMOVE to the waste bin, COUNT and STATUS, a grasp outside the work area, a missing object, an unknown place, automatic mode (battery first, stops at an unreachable object), a grasp refused in automatic mode, an unknown method. With motion module files: World coordinates and place names reach the module (and its helper imports work), a draft returning `False`, an exception or a non-bool result count as failed motions, a module without the three functions is rejected, and a grasp outside the work area never reaches the module.

@@ -125,6 +125,41 @@ So the earlier conclusion "mini is the candidate" was incomplete: mini picks the
 
 **Choice for the demo:** mini with the language guard (accurate, fastest, replies fixed by code); pro remains the choice if natural model-written replies matter more than speed.
 
+## On the robot: World coordinates and the full chain (2026-11-16)
+
+Setup: the robot's Jetson AGX Orin (GPU), `fruit01` through [detector/fruit_localizer.py](../detector/fruit_localizer.py) in a separate Python environment, head camera at 1280×720 with depth aligned to color, a colleague's preliminary eye-to-hand calibration of the head camera (`T_world_camera`, robot World frame). The head stayed in its calibration pose. **The arm did not move** in any of these tests.
+
+### Position checks without the arm
+
+| Check | How | Result |
+|---|---|---|
+| Depth | camera-to-apple distance vs a tape measure | `depth_m` 0.468 m matched the tape measure |
+| Camera axes | object moved right / down in the image | camera X / Y increased as expected |
+| Calibration applied correctly | World point recomputed by hand from `xyz_camera` and the matrix | identical to the program's result |
+| Flat table | four objects spread over the table (two apples, two peppers) | the two apples, 23 cm apart: World Z −0.3055 and −0.3058 m (**0.3 mm** apart); peppers 1–2 cm higher (taller objects; depth is measured on the top surface) |
+| Distances | two pairs measured with a ruler | apples 22.6 cm, peppers 36.3 cm from the camera; the ruler agreed |
+| Repeatability | the same apple measured twice, about 4 h apart | (−0.0748, −0.3793, −0.3055) and (−0.0748, −0.3802, −0.3073) m: within **1–2 mm** |
+
+Axis directions on the table, useful for grasp planning: +X towards the image's left, −Y away from the robot, +Z up; the table lies about 0.3 m below the World origin.
+
+- **Conclusion:** depth, intrinsics and the rotation part of the calibration are consistent. The **absolute position** (does World (x, y) really match the arm?) can only be checked with the arm: next step, the reference-point check ([robot/refpoint_check.py](../robot/refpoint_check.py)).
+
+### Full chain in dry-run
+
+[robot/fruit_server.py](../robot/fruit_server.py) on the robot (real camera, dry-run motion), commands through [voice/robot_bridge.py](../voice/robot_bridge.py), then through the voice web page running on the robot:
+
+| Command | Result |
+|---|---|
+| `COUNT` | "2 pepper, 2 apple": matched the table |
+| `PICK apple` | most confident apple; planned 10 cm above → 2 cm below its top surface → up → hand-over |
+| `REMOVE battery` (no battery on the table) | refused: "no battery found on the table"; no move sent |
+| `REMOVE battery` (battery added) | grasp planned at its position → waste bin |
+| `SORT apple` | grasped the remaining apple → apple box → asked again → none left → stopped |
+| `START_AUTO` | both peppers into the pepper box on its own, then back to manual mode |
+| Voice page: "give me an apple" + Confirm | `set_work_mode → grasp_object(apple) → move_object_to(apple, hand_over)`, shown as DONE |
+
+- **Not yet tested:** real arm motion (motion module, grasp orientation, heights and place positions are with the robot-side team), the microphone on the robot, the speed of a full sorting run.
+
 ## Entry template
 
 ### `<run name>`
