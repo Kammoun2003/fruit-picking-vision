@@ -15,15 +15,21 @@ Detections without enough valid depth are skipped instead of returning a wrong p
 
 Live view (reads the camera only; nothing moves):
     python fruit_localizer.py --calibration <result.json> [--serial <head camera serial>]
-    keys: p = print the current list, q = quit.   --once: print one frame as JSON and exit.
+    print the current list: Enter in the terminal (or p in the window); quit: q + Enter (or q in the window).
+    --once: print one frame as JSON and exit; only the JSON goes to stdout, so `> file.json` is clean.
 
 The calibration is preliminary: do not command the arm with these coordinates before they have been
 checked against known reference points.
 """
 import argparse
+from contextlib import contextmanager
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
+import queue
+import sys
+import threading
 import time
 
 import numpy as np
@@ -111,7 +117,43 @@ def main():
     p.add_argument('--once', action='store_true', help='print one frame as JSON and exit, no window')
     a = p.parse_args()
 
+    if a.once:
+        # YOLOv5 logs to stdout; send everything to stderr and print only the JSON on stdout.
+        with stdout_to_stderr():
+            fruits = run(a, rs, cv2)
+        print(json.dumps(fruits, indent=2), flush=True)
+    else:
+        run(a, rs, cv2)
+
+
+@contextmanager
+def stdout_to_stderr():
+    """Redirect file descriptor 1 (also what loggers and libraries write to) to stderr."""
+    sys.stdout.flush()
+    saved = os.dup(1)
+    os.dup2(2, 1)
+    try:
+        yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved, 1)
+        os.close(saved)
+
+
+def read_terminal(commands):
+    """Terminal lines as commands: Enter = print, q = quit. Works whatever window has the focus."""
+    for line in sys.stdin:
+        commands.put('q' if line.strip().lower() == 'q' else 'p')
+    commands.put('q')  # stdin closed
+
+
+def run(a, rs, cv2):
+    """Live window, or with --once the detections of one frame (returned)."""
     localizer = FruitLocalizer(load_transform(a.calibration), conf=a.conf)
+    commands = queue.Queue()
+    if not a.once:
+        threading.Thread(target=read_terminal, args=(commands,), daemon=True).start()
+        print('Enter = print the current list, q + Enter = quit', flush=True)
     pipeline, config = rs.pipeline(), rs.config()
     if a.serial:
         config.enable_device(a.serial)
@@ -135,8 +177,7 @@ def main():
             fruits = localizer.locate(image, depth_m, intrinsics)
             ms = 1000 * (time.perf_counter() - start)
             if a.once:
-                print(json.dumps(fruits, indent=2))
-                break
+                return fruits
             for f in fruits:
                 x1, y1, x2, y2 = f['bbox']
                 X, Y, Z = f['xyz_world']
@@ -148,11 +189,15 @@ def main():
                             cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
             cv2.putText(image, f'{len(fruits)} located  {ms:.0f} ms  World frame, PRELIMINARY calibration',
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-            cv2.imshow('fruit01 World XYZ (p = print, q = quit)', image)
+            cv2.imshow('fruit01 World XYZ (Enter in the terminal = print, q = quit)', image)
             key = cv2.waitKey(1) & 0xFF
-            if key == ord('p'):
+            try:
+                command = commands.get_nowait()
+            except queue.Empty:
+                command = 'p' if key == ord('p') else 'q' if key == ord('q') else None
+            if command == 'p':
                 print(json.dumps(fruits, indent=2), flush=True)
-            elif key == ord('q'):
+            elif command == 'q':
                 break
     finally:
         pipeline.stop()
