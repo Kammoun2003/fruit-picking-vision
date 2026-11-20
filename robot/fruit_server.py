@@ -14,9 +14,12 @@ The server decides WHAT to do (which object, where it is, whether it is inside t
 stopping); a motion module decides HOW the arm moves. A motion module provides three functions that
 block until the motion has finished:
 
-    pick_at(x, y, z) -> bool    World frame, metres; z is the top surface of the object
-    place_at(name)   -> bool    one of the place names in the config
-    home()           -> bool
+    pick_at(x, y, z, name) -> bool   World frame, metres; z = top surface; name = class (its grasp gesture)
+    place_at(name)         -> bool   one of the place names in the config
+    home()                 -> bool
+
+Only objects inside the work area count: the table, not the boxes. Detection replies, the choice of the
+object to grasp and automatic mode all ignore objects outside it (e.g. fruit already sorted into a box).
 
 Without --motion-module the built-in dry-run is used: nothing moves, the planned steps are printed, and
 a picked object is hidden from later detections (3 cm radius) so SORT and START_AUTO finish as for real.
@@ -106,10 +109,10 @@ class DryRunMotion:
                 print('  [dry-run]', step, flush=True)
         return True
 
-    def pick_at(self, x, y, z):
+    def pick_at(self, x, y, z, name):
         r = lambda v: round(v, 4)
         return self._do(f'above {[r(x), r(y), r(z + self.approach)]}', 'hand open', f'down {[r(x), r(y), r(z + self.offset)]}',
-                        'hand close', f'up {[r(x), r(y), r(z + self.approach)]}')
+                        f'hand grasp_{name}', f'up {[r(x), r(y), r(z + self.approach)]}')
 
     def place_at(self, name):
         return self._do(f'place {name}', 'hand open')
@@ -140,8 +143,8 @@ class ModuleMotion:
             print(f'  [motion] {name}{args} raised {type(exc).__name__}: {exc}', flush=True)
             return False
 
-    def pick_at(self, x, y, z):
-        return self._call('pick_at', float(x), float(y), float(z))
+    def pick_at(self, x, y, z, name):
+        return self._call('pick_at', float(x), float(y), float(z), name)
 
     def place_at(self, name):
         return self._call('place_at', name)
@@ -169,12 +172,18 @@ class FruitRobot:
                      if all(math.dist(f['xyz_world'], p) > 0.03 for p in self.virtually_removed)]
         return found
 
-    def best(self, name):
-        candidates = [f for f in self.detections() if f['class_name'] == name]
-        return max(candidates, key=lambda f: f['confidence']) if candidates else None
-
     def in_workspace(self, xyz):
         return all(lo <= v <= hi for v, (lo, hi) in zip(xyz, (self.cfg['workspace'][a] for a in 'xyz')))
+
+    def table_objects(self, found=None):
+        """Detections inside the work area: on the table, within reach, not already in a box."""
+        found = self.detections() if found is None else found
+        return [f for f in found if self.in_workspace(f['xyz_world'])]
+
+    def best(self, name, found=None):
+        """The most confident reachable object of a class, or None."""
+        candidates = [f for f in self.table_objects(found) if f['class_name'] == name]
+        return max(candidates, key=lambda f: f['confidence']) if candidates else None
 
     # ---------- motions
     def grasp(self, name):
@@ -182,13 +191,12 @@ class FruitRobot:
             return [False, AUTO_MODE]
         if self.holding:
             return [False, HOLDING]
-        target = self.best(name)
-        if target is None:
-            return [False, NOT_DETECTED]
-        if not self.in_workspace(target['xyz_world']):
-            return [False, OUTSIDE_AREA]
+        found = self.detections()
+        target = self.best(name, found)
+        if target is None:  # seen only outside the work area, or not at all
+            return [False, OUTSIDE_AREA if any(f['class_name'] == name for f in found) else NOT_DETECTED]
         with self.motion_lock:
-            ok = self.motion.pick_at(*target['xyz_world'])
+            ok = self.motion.pick_at(*target['xyz_world'], name)
         if not ok:
             return [False, MOTION_FAILED]
         self.holding = name
@@ -208,10 +216,10 @@ class FruitRobot:
         self.holding = None
         return [True, to]
 
-    # ---------- automatic mode: everything into its place, intruders first
+    # ---------- automatic mode: every reachable object with a place, intruders first
     def _auto_loop(self):
         while not self.suspend.is_set() and self.mode == 'auto':
-            found = [f for f in self.detections() if f['class_name'] in self.cfg['class_places']]
+            found = [f for f in self.table_objects() if f['class_name'] in self.cfg['class_places']]
             if not found:
                 break
             found.sort(key=lambda f: (f['class_name'] != 'battery', -f['confidence']))
@@ -223,13 +231,13 @@ class FruitRobot:
     # ---------- the /action dispatcher
     def handle(self, method, p):
         if method == 'detect_objects':
-            return 200, {'result': {'object_name': [f['class_name'] for f in self.detections()]}}
+            return 200, {'result': {'object_name': [f['class_name'] for f in self.table_objects()]}}
         if method == 'check_object_exist':
-            names = {f['class_name'] for f in self.detections()}
+            names = {f['class_name'] for f in self.table_objects()}
             return 200, {'result': {n: n in names for n in p.get('object_name', [])}}
         if method == 'check_count':
             counts = {}
-            for f in self.detections():
+            for f in self.table_objects():
                 counts[f['class_name']] = counts.get(f['class_name'], 0) + 1
             return 200, {'result': counts}
         if method == 'get_target_position':

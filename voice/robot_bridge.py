@@ -36,12 +36,13 @@ class Cancelled(Exception):
 
 
 def load_places(path):
-    """Destination name (the `to` of move_object_to) for every class, plus the hand-over place."""
+    """Destination name (the `to` of move_object_to) for every class, plus the hand-over place.
+    null or a missing entry = not set up yet: commands that need it are refused with a clear message."""
     data = json.loads(Path(path).read_text(encoding='utf-8'))
     places = {k: data.get(k) for k in CLASSES + ('hand_over',)}
-    missing = [k for k, v in places.items() if not isinstance(v, str) or not v.strip()]
-    if missing:
-        raise ValueError('robot places file: missing destination for ' + ', '.join(missing))
+    invalid = [k for k, v in places.items() if v is not None and (not isinstance(v, str) or not v.strip())]
+    if invalid:
+        raise ValueError('robot places file: invalid destination for ' + ', '.join(invalid))
     return places
 
 
@@ -95,6 +96,10 @@ class RobotBridge:
     def start(self, command, obj=None):
         """Start a motion command in the background; refuses while another task runs."""
         self._check(command, obj, MOTIONS)
+        needed = {'PICK': 'hand_over', 'SORT': obj, 'REMOVE': obj}.get(command)
+        if needed and not self.places.get(needed):
+            what = 'the hand-over place' if needed == 'hand_over' else f'the {needed}'
+            raise RobotError(f'no destination set up yet for {what}')
         with self._lock:
             if self._thread and self._thread.is_alive():
                 raise RobotError('a task is still running; wait for it or press Stop')
@@ -193,7 +198,9 @@ class RobotBridge:
     def _grasp(self, name):
         ok, code = _pair(self._step('grasp_object', MOTION_TIMEOUT_S, object_name=name), 'grasp_object')
         if not ok:
-            reasons = {1: f'no {name} found on the table', 2: 'grasping is not allowed in automatic mode'}
+            reasons = {1: f'no {name} found on the table', 2: 'grasping is not allowed in automatic mode',
+                       3: f'the {name} is outside the reachable work area', 4: 'the robot is already holding an object',
+                       5: f'the arm motion failed while grasping the {name}'}
             raise RobotError(reasons.get(code, f'grasping the {name} failed (code {code})'))
 
     def _move(self, name, place):
@@ -229,10 +236,11 @@ class RobotBridge:
         names = self._detect(self._step)
         if not names:
             raise RobotError('nothing detected on the table')
+        names = [n for n in names if self.places.get(n)]
+        if not names:
+            raise RobotError('nothing on the table has a destination set up yet')
         # Intruders first, so a battery never stays among the food.
         name = next((n for n in names if n in INTRUDERS), names[0])
-        if name not in self.places:
-            raise RobotError(f'no destination for detected object {name!r}')
         self._pick_and_place(name, self.places[name])
         return f'{name} moved to {self.places[name]} (requested; not visually verified)'
 

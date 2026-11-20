@@ -1,9 +1,9 @@
 {
-  "_note": "Destination names sent as `to` in move_object_to. PLACEHOLDERS until the robot side confirms the real names.",
-  "banana": "box_banana",
-  "pepper": "box_pepper",
-  "potato": "box_potato",
-  "apple": "box_apple",
-  "battery": "waste_bin",
-  "hand_over": "hand_over"
+  "_note": "Destination names sent as `to` in move_object_to; they must match the robot's recorded places. null = not set up yet (the command is refused with a clear message). waste_bin comes back once it is re-recorded.",
+  "banana": null,
+  "pepper": "box_2",
+  "potato": null,
+  "apple": "box_1",
+  "battery": null,
+  "hand_over": null
 }

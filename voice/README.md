@@ -7,7 +7,7 @@ Turns a sentence into one validated command for the fruit robot, following [docs
 | `intent.py` | allowed commands and classes, the LLM system prompt, the strict answer check (`parse_intent`), the reply-language guard (`match_language`), the stop/status shortcuts, one OpenAI-compatible API call |
 | `evaluate.py` | runs [tests/intent_test_set.csv](../tests/intent_test_set.csv) through the LLM and scores it |
 | `robot_bridge.py` | runs a validated command on the robot's action API as a sequence of checked steps, stoppable between steps |
-| `robot_places.json` | destination name for each class and the hand-over place (placeholders until the robot side confirms them) |
+| `robot_places.json` | destination name for each class and the hand-over place, matching the robot's recorded places; `null` = not set up yet, and commands that need it are refused with a clear message |
 | `mock_robot.py` | fake robot answering like the real action API, to test without the robot |
 | `test_robot_bridge.py` | tests of every plan, the error cases and STOP, against the mock robot over HTTP |
 
@@ -94,7 +94,7 @@ The destination names (`to`) come from `robot_places.json`, so only that file ch
 python voice\test_robot_bridge.py
 ```
 
-17 tests against the mock robot over real HTTP: every plan, a missing object, the SORT limit, an empty table, STOP during a task, a second task while one runs, refused command/object combinations, an unreachable robot and an unknown method.
+20 tests against the mock robot over real HTTP: every plan, destinations not set up yet, a missing object, the SORT limit, an empty table, STOP during a task, a second task while one runs, refused command/object combinations, an unreachable robot and an unknown method.
 
 To try the whole chain by hand, start the mock robot (it prints every call it receives):
 

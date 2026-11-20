@@ -1,16 +1,13 @@
 {
-  "_note": "World frame, metres. The work area comes from the first measurements on the table and must be checked with the arm. Heights, the grasp orientation and the place positions belong to the motion module (fruit_motion.py), not to this file.",
+  "_note": "World frame, metres. Work area = the table: z keeps fruit on the table (top surface about -0.30) and ignores fruit already in a box (about -0.38). Provisional until the reach is measured. Places are the motion module's recorded positions; waste_bin is re-recorded before the battery comes back. Heights, grasp gestures and positions belong to the motion module (fruit_motion.py).",
   "workspace": {
-    "x": [-0.25, 0.20],
-    "y": [-0.65, -0.25],
-    "z": [-0.40, -0.15]
+    "x": [-0.25, 0.22],
+    "y": [-0.60, -0.27],
+    "z": [-0.36, -0.25]
   },
-  "places": ["box_banana", "box_pepper", "box_potato", "box_apple", "waste_bin", "hand_over"],
+  "places": ["box_1", "box_2"],
   "class_places": {
-    "banana": "box_banana",
-    "pepper": "box_pepper",
-    "potato": "box_potato",
-    "apple": "box_apple",
-    "battery": "waste_bin"
+    "apple": "box_1",
+    "pepper": "box_2"
   }
 }

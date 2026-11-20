@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mock_robot import MockRobot, make_server  # noqa: E402
 from robot_bridge import RobotBridge, RobotClient, RobotError, load_places  # noqa: E402
 
-PLACES = load_places(Path(__file__).resolve().parent / 'robot_places.json')
+# A complete set of destinations for the plan tests; the real file may still have places not set up.
+PLACES = {'banana': 'box_banana', 'pepper': 'box_pepper', 'potato': 'box_potato', 'apple': 'box_apple',
+          'battery': 'waste_bin', 'hand_over': 'hand_over'}
 
 
 class BridgeTest(unittest.TestCase):
@@ -140,11 +142,34 @@ class BridgeTest(unittest.TestCase):
             self.bridge.client.call('fly_away')
         self.assertIn('HTTP 404', str(ctx.exception))
 
-    def test_places_file_must_be_complete(self):
+    def test_places_file_missing_means_not_set_up_invalid_is_refused(self):
         path = Path(tempfile.mkdtemp()) / 'places.json'
-        path.write_text(json.dumps({'banana': 'box_1'}))
+        path.write_text(json.dumps({'apple': 'box_1', 'pepper': None}))
+        places = load_places(path)
+        self.assertEqual(places['apple'], 'box_1')
+        self.assertIsNone(places['pepper'])
+        self.assertIsNone(places['hand_over'])
+        path.write_text(json.dumps({'apple': ''}))
         with self.assertRaises(ValueError):
             load_places(path)
+
+    def test_the_real_places_file_loads(self):
+        places = load_places(Path(__file__).resolve().parent / 'robot_places.json')
+        self.assertTrue(any(places.values()))
+
+    def test_commands_without_destination_refused_before_any_call(self):
+        bridge = RobotBridge(self.bridge.client, dict(PLACES, banana=None, hand_over=None))
+        for command, obj in [('SORT', 'banana'), ('PICK', 'apple')]:
+            with self.assertRaises(RobotError) as ctx:
+                bridge.start(command, obj)
+            self.assertIn('no destination set up yet', str(ctx.exception))
+        self.assertEqual(self.robot.calls, [])
+
+    def test_start_single_skips_classes_without_destination(self):
+        self.bridge.places = dict(PLACES, battery=None)
+        task = self.run_task('START_SINGLE')
+        self.assertEqual(task['state'], 'done', task)
+        self.assertNotEqual(self.robot.placed[0][0], 'battery')
 
 
 if __name__ == '__main__':
